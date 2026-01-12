@@ -12,15 +12,22 @@ Icon[]
 ## macOS Thumbnails
 ._*
 
+# Docker
+## Logs
+build.log*
+*.swp
+
 # IDEs and editors
 ## Visual Studio Code - https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
 .vscode/*
+!.vscode/Brewfile
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 !.vscode/*.code-snippets
 !*.code-workspace
+.code-server/*
 
 # Node.js - https://github.com/github/gitignore/blob/main/Node.gitignore
 ## Logs

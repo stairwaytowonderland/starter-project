@@ -1,0 +1,155 @@
+{
+	"name": "VSCode Dev Container",
+	// "image": "ghcr.io/stairwaytowonderland/simple-project-devcontainer:latest",
+	"build": {
+		"dockerfile": "./docker/Dockerfile",
+		"target": "devcontainer",
+		"context": "..",
+		"args": {
+			// "VARIANT": "latest",
+			"USERNAME": "vscode",
+			"USER_UID": "1000",
+			"USER_GID": "1000"
+		}
+	},
+	// Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root
+	"remoteUser": "vscode",
+
+	// Mount the workspace folder
+	// https://code.visualstudio.com/remote/advancedcontainers/change-default-source-mount
+	// If remoteUser is commented out to use root, use /root instead of /home/vscode
+	"workspaceFolder": "/home/vscode/workspace",
+	"workspaceMount": "source=${localWorkspaceFolder},target=/home/vscode/workspace,type=bind,consistency=cached",
+	// Mount SSH keys
+	"mounts": ["source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached"],
+
+	// Features to install
+	// https://containers.dev/features
+	"features": {
+		// Essential features
+		// Use "none" for common-utils username to skip creating a non-root user if user is already created in Dockerfile
+		"ghcr.io/devcontainers/features/common-utils:2": {
+			"username": "none"
+		},
+
+		// Language features
+		"ghcr.io/devcontainers/features/node:1": {
+			"version": "lts"
+		},
+		"ghcr.io/devcontainers/features/python:1": {
+			"version": "3.11",
+			"installTools": "true"
+		},
+		"ghcr.io/devcontainers/features/terraform:1": {
+			"version": "1.4.5"
+		},
+
+		// Linting and formatting features
+		"ghcr.io/devcontainers-extra/features/prettier": {},
+		"ghcr.io/devcontainers-extra/features/pylint": {},
+		"ghcr.io/devcontainers-extra/features/black": {},
+		"ghcr.io/devcontainers-extra/features/isort": {},
+
+		// Container features
+		// Not yet supported on debian:trixie (use 'debian:bookworm' or 'ubuntu-24.04')
+		"ghcr.io/devcontainers/features/docker-in-docker": {},
+
+		// Additional features
+		"ghcr.io/devcontainers/features/github-cli": {},
+		"ghcr.io/devcontainers/features/aws-cli:1": {}
+		// Better to configure git and homebrew in Dockerfile
+		// "ghcr.io/devcontainers/features/git:1": {},
+		// "ghcr.io/meaningful-ooo/devcontainer-features/homebrew:2": {},
+	},
+
+	// Use 'postCreateCommand' to run commands after the container is created (overrides the CMD in Dockerfile)
+	"postCreateCommand": "git --version && python3 --version && printf \"NodeJs \" && node --version && printf \"npm \" && npm --version && printf \"%s@%s:%s\n\" $(whoami) $(hostname) $(pwd)",
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally
+	"forwardPorts": [],
+
+	// Set container-specific environment variables
+	"remoteEnv": {
+		"PATH": "/home/linuxbrew/.linuxbrew/bin:${containerEnv:PATH}"
+	},
+
+	// Configure tool-specific properties
+	"customizations": {
+		"vscode": {
+			// VSCode extensions from Brewfile
+			"extensions": [
+				"bierner.github-markdown-preview",
+				"bierner.markdown-checkbox",
+				"bierner.markdown-emoji",
+				"bierner.markdown-footnotes",
+				"bierner.markdown-mermaid",
+				"bierner.markdown-preview-github-styles",
+				"bierner.markdown-yaml-preamble",
+				"bpruitt-goddard.mermaid-markdown-syntax-highlighting",
+				"dbaeumer.vscode-eslint",
+				"editorconfig.editorconfig",
+				"esbenp.prettier-vscode",
+				"hashicorp.terraform",
+				"ms-python.black-formatter",
+				"ms-python.isort",
+				"ms-python.pylint",
+				"ms-python.python",
+				"ms-python.vscode-pylance",
+				"ms-python.vscode-python-envs",
+				"redhat.vscode-yaml",
+				"rodolphebarbanneau.python-docstring-highlighter",
+				"streetsidesoftware.code-spell-checker",
+				"tamasfe.even-better-toml",
+				"tomasdahlqvist.markdown-admonitions",
+				"yahyabatulu.vscode-markdown-alert"
+			],
+
+			// VSCode settings from .vscode/settings.json
+			"settings": {
+				"terminal.integrated.defaultProfile.linux": "bash",
+				"python.defaultInterpreterPath": "/usr/bin/python3",
+				"editor.formatOnType": true,
+				"editor.formatOnSave": true,
+				"editor.formatOnPaste": false,
+				"editor.defaultFormatter": "esbenp.prettier-vscode",
+				"editor.detectIndentation": false,
+				"editor.tabSize": 4,
+				"prettier.useEditorConfig": true,
+				"prettier.configPath": ".prettierrc",
+				"files.eol": "\n",
+				"files.encoding": "utf8",
+				"files.trimTrailingWhitespace": true,
+				"files.insertFinalNewline": true,
+				"cSpell.words": ["isort", "pylint"],
+				"[yaml]": {
+					"editor.defaultFormatter": "redhat.vscode-yaml",
+					"editor.formatOnSave": true
+				},
+				"[terraform]": {
+					"editor.defaultFormatter": "hashicorp.terraform",
+					"editor.formatOnSave": true,
+					"editor.tabSize": 2
+				},
+				"[terraform-vars]": {
+					"editor.defaultFormatter": "hashicorp.terraform",
+					"editor.formatOnSave": true,
+					"editor.tabSize": 2
+				},
+				"[toml]": {
+					"editor.defaultFormatter": "tamasfe.even-better-toml",
+					"editor.formatOnSave": true
+				},
+				"black-formatter.args": ["--config", "${workspaceFolder}/pyproject.toml"],
+				"isort.args": ["--profile", "black"],
+				"[python]": {
+					// Editorconfig settings will override these settings
+					"editor.defaultFormatter": "ms-python.black-formatter",
+					"editor.formatOnSave": true,
+					"editor.codeActionsOnSave": {
+						"source.organizeImports": "explicit"
+					}
+				}
+			}
+		}
+	}
+}

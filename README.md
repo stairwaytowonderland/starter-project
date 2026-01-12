@@ -2,6 +2,22 @@
 
 Use this repo as a starting point for other new projects.
 
+## Project Structure
+
+```
+<root>
+├── .devcontainer/
+│   ├── docker/               # Dev Container Docker files and scripts
+│   ├── devcontainer.json     # VS Code Dev Container configuration
+│   └── README.md
+├── .vscode/
+│   ├── Brewfile              # Brew bundle file to easily install the vscode extensions
+│   └── settings.json         # The VS Code settings file
+├── src                       # Source files
+├── ...                       # Other project files
+└── README.md                 # This file
+```
+
 ## Getting Started
 
 ### Clone this Repo
@@ -117,14 +133,14 @@ pylint --generate-rcfile > .pylintrc
 ```
 
 > [!IMPORTANT]
-> Depending on your version of `pylint`/`python`, you'll most likely need to<br>comment out the `check-fixme-in-docstring` option
+> Depending on your version of `pylint`/`python`, the `check-fixme-in-docstring` option might need to be commented out.
 
 See the [official docs](https://pylint.readthedocs.io/en/stable/user_guide/usage/run.html) for more details.
 
 ## **_VS Code_** as an Editor
 
 > [!NOTE]
-> For convenience, a [`Brewfile`](./Brewfile) is provided, which can be used to install all the following extensions.
+> For convenience, a [`Brewfile`](./.vscode/Brewfile) (_located at `./.vscode/Brewfile`_) is provided, which can be used to install all the following extensions.
 >
 > To install from the Brewfile:
 >
