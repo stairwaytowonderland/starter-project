@@ -4,6 +4,7 @@
 #   vscode \
 #   .
 
+# ---------------------------------------
 set -euo pipefail
 
 if [ -z "$0" ] ; then
@@ -13,12 +14,18 @@ fi
 
 script_name="$0"
 script_dir="$(cd "$(dirname "$script_name")" && pwd)"
+# ---------------------------------------
+
+# Parse first argument as IMAGE_NAME, second as REMOTE_USER
+
+# Specify last argument as context if it's a directory
 last_arg="${@: -1}"
 
 if [ $# -lt 1 ] ; then
   echo "Usage: $0 <image-name[:build_target]> [remote-user] [context]"
   exit 1
 fi
+# Determine IMAGE_NAME and DOCKER_TARGET
 IMAGE_NAME=${IMAGE_NAME:-$1}
 shift
 if awk -F':' '{print $2}' <<< "$IMAGE_NAME" >/dev/null 2>&1 ; then
@@ -31,6 +38,11 @@ if [ -d "$last_arg" ] ; then
 else
   DOCKER_CONTEXT="${DOCKER_CONTEXT:-"$script_dir/../../.."}"
 fi
+if [ ! -d "$DOCKER_CONTEXT" ] ; then
+  echo "Docker context directory not found at expected path: $DOCKER_CONTEXT"
+  exit 1
+fi
+# Determine REMOTE_USER
 if [ $# -gt 0 ] ; then
   if [ "$1" != "$DOCKER_CONTEXT" ] ; then
     REMOTE_USER="${1-}"
@@ -41,11 +53,6 @@ REMOTE_USER="${REMOTE_USER:-devcontainer}"
 
 workspace_dir="/home/${REMOTE_USER}/workspace"
 docker_tag="${IMAGE_NAME}:${DOCKER_TARGET}"
-
-if [ ! -d "$DOCKER_CONTEXT" ] ; then
-  echo "Docker context directory not found at expected path: $DOCKER_CONTEXT"
-  exit 1
-fi
 
 echo "Running Docker container for ${REMOTE_USER}..."
 com=(docker run -it --rm)
@@ -59,7 +66,6 @@ for arg in "$@" ; do
     com+=("$arg")
   fi
 done
-printf "\033[95;1m%s\033[0m\n" "$(echo ${com[@]})"
 
-set -x
-"${com[@]}"
+set -- "${com[@]}"
+. "$script_dir/exec_com.sh" "$@"

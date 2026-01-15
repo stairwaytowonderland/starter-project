@@ -41,7 +41,7 @@
 	},
 	"[dockerfile]": {
 		"editor.defaultFormatter": "ms-azuretools.vscode-containers",
-		"editor.formatOnSave": true
+		"editor.formatOnSave": false
 	},
 	// If formatting isn't working after changing black-formatter.args ...
 	// In the Command Pallete search for 'Black Formatter: Restart Server'

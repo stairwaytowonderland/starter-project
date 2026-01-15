@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
 # ./.devcontainer/docker/bin/clean.sh
 
+# ---------------------------------------
 set -euo pipefail
+
+if [ -z "$0" ] ; then
+  echo "Cannot determine script path"
+  exit 1
+fi
+
+script_name="$0"
+script_dir="$(cd "$(dirname "$script_name")" && pwd)"
+# ---------------------------------------
 
 # docker rmi $(docker image ls -f dangling=true -q)
 echo "Removing dangling Docker images..."
 com=(docker rmi)
 com+=("$(docker image ls -f dangling=true -q)")
-printf "\033[95;1m%s\033[0m\n" "$(echo ${com[@]})"
 
 # Deep clean docker system (use with caution)
 # echo "Cleaning up Docker system (this may take a while)..."
@@ -15,7 +24,6 @@ printf "\033[95;1m%s\033[0m\n" "$(echo ${com[@]})"
 # com+=(prune)
 # com+=(-a)
 # com+=(--volumes)
-# printf "\033[95;1m%s\033[0m\n" "$(echo ${com[@]})"
 
-set -x
-"${com[@]}"
+set -- "${com[@]}"
+. "$script_dir/exec_com.sh" "$@"

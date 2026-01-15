@@ -6,6 +6,7 @@
 #   --progress=plain
 #   .
 
+# ---------------------------------------
 set -euo pipefail
 
 if [ -z "$0" ] ; then
@@ -15,7 +16,11 @@ fi
 
 script_name="$0"
 script_dir="$(cd "$(dirname "$script_name")" && pwd)"
+# ---------------------------------------
+
+# Specify last argument as context if it's a directory
 last_arg="${@: -1}"
+# Parse first argument as IMAGE_NAME, second as REMOTE_USER (if not a build-arg or option)
 first_arg="${1-}"
 [ -z "$first_arg" ] || shift
 # Check if next argument begins with '-' (indicating a build-arg or option)
@@ -41,11 +46,21 @@ fi
 
 . "$script_dir/load_env.sh" "$script_dir/../../.."
 
+# Default repository info (must be provided as environment variables or build args)
+REPO_NAME="${REPO_NAME}"
+REPO_NAMESPACE="${REPO_NAMESPACE}"
+
+# Determine Docker context
 if [ -d "$last_arg" ] ; then
   DOCKER_CONTEXT="$last_arg"
 else
   DOCKER_CONTEXT="${DOCKER_CONTEXT:-"$script_dir/../../.."}"
 fi
+if [ ! -d "$DOCKER_CONTEXT" ] ; then
+  echo "Docker context directory not found at expected path: $DOCKER_CONTEXT"
+  exit 1
+fi
+# Determine IMAGE_NAME and DOCKER_TARGET
 IMAGE_NAME=${IMAGE_NAME:-$first_arg}
 if [ -z "$IMAGE_NAME" ] ; then
   echo "Usage: $0 <image-name[:build_target]> [build-args...] [options] [context]"
@@ -56,19 +71,15 @@ if awk -F':' '{print $2}' <<< "$IMAGE_NAME" >/dev/null 2>&1 ; then
   IMAGE_NAME="$(awk -F':' '{print $1}' <<< "$IMAGE_NAME")"
 fi
 DOCKER_TARGET=${DOCKER_TARGET:-"devcontainer"}
+# Determine REMOTE_USER (the devcontainer non-root user, e.g., 'vscode' or 'devcontainer')
 REMOTE_USER="${REMOTE_USER:-$second_arg}"
 
-REPO_NAME="${REPO_NAME:-starter-project}"
-REPO_NAMESPACE="${REPO_NAMESPACE:-stairwaytowonderland}"
-
+# Determine Dockerfile path and build tag
 dockerfile_path="$DOCKER_CONTEXT/.devcontainer/docker/Dockerfile"
 build_tag="${IMAGE_NAME}:${DOCKER_TARGET}"
 
 if [ ! -f "$dockerfile_path" ] ; then
   echo "Dockerfile not found at expected path: $dockerfile_path"
-  exit 1
-elif [ ! -d "$DOCKER_CONTEXT" ] ; then
-  echo "Docker context directory not found at expected path: $DOCKER_CONTEXT"
   exit 1
 fi
 
@@ -100,7 +111,6 @@ for arg in "$@" ; do
   fi
 done
 com+=("$DOCKER_CONTEXT")
-printf "\033[95;1m%s\033[0m\n" "$(echo ${com[@]})"
 
-set -x
-"${com[@]}"
+set -- "${com[@]}"
+. "$script_dir/exec_com.sh" "$@"

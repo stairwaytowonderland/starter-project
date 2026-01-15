@@ -8,6 +8,7 @@ FROM ${BASE_IMAGE} AS base
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Build arguments need to be re-declared if used in FROM instructions
+# (https://docs.docker.com/build/building/variables/#scoping)
 ARG IMAGE_NAME
 ARG VARIANT
 # Create a non-root user
@@ -16,12 +17,19 @@ ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 ARG PASSGEN=/passgen.sh
 ARG LOGGER=/logger.sh
-# Repository information
-ARG REPO_NAME=starter-project
-ARG REPO_NAMESPACE=stairwaytowonderland
+
+# Repository information (required for image labels)
+ARG REPO_NAME=devcontainer
+ARG REPO_NAMESPACE=devcontainer
 
 # Update and install essential packages
-RUN apt-get update \
+RUN \
+  # Check for mandatory build arguments (https://stackoverflow.com/a/44791255)
+  : "${REPO_NAME:?Build argument needs to be set and non-empty.}" \
+  && \
+  : "${REPO_NAMESPACE:?Build argument needs to be set and non-empty.}" && \
+  # Update package lists and install packages
+  apt-get update \
   && apt-get -y install --no-install-recommends \
   # Essential build tools
   build-essential \
@@ -30,7 +38,6 @@ RUN apt-get update \
   unzip \
   ca-certificates \
   # Additional utilities
-  sudo \
   vim \
   nano \
   less \
@@ -39,8 +46,6 @@ RUN apt-get update \
   tzdata \
   jq \
   yq \
-  # Git (required for homebrew installation)
-  git \
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/*
 
@@ -54,9 +59,8 @@ RUN touch "$LOGGER" \
 LEVEL="\${LEVEL:-info}"
 
 log() {
-  local message="\$*"
   local timestamp="\$(date +'%Y-%m-%d %H:%M:%S')"
-  echo "[\$timestamp] [\$(echo \$LEVEL | tr '[:lower:]' '[:upper:]')] \$message" >&2
+  printf "[%s] [%s] %s\n" "\$timestamp" "\$(echo \$LEVEL | tr '[:lower:]' '[:upper:]')" "\$*" >&2
 }
 
 main() {
@@ -82,7 +86,26 @@ LC_ALL=C tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c${1:-32}
 EOF
 
 
-FROM base AS usersetup
+FROM base AS devuser
+
+ARG PYTHON_VERSION=latest
+
+ENV DEFAULT_ROOT_PASS=true
+
+# Install sudo and fun packages
+# We don't want to use --no-install-recommends here,
+# since the games (and possibly sudo) may depend on some recommended packages.
+RUN apt-get update \
+  && apt-get -y install \
+  # Install sudo here so production image doesn't have it
+  sudo \
+  # Git (required for homebrew installation)
+  git \
+  # Fun
+  cowsay \
+  fortune \
+  && apt-get clean -y \
+  && rm -rf /var/lib/apt/lists/*
 
 ENV PATH="/home/$USERNAME/.local/bin:${PATH}"
 
@@ -97,64 +120,19 @@ RUN if [ "$IMAGE_NAME" = "ubuntu" ]; then \
   fi; \
   fi
 
-# Create a new non-root user with sudo privileges
-RUN groupadd --gid $USER_GID $USERNAME \
-  && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME -s /bin/bash \
-  && echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
-  && chmod 0440 /etc/sudoers.d/$USERNAME
-
-# RUN chpasswd <<<"root:docker"
-
-
-FROM usersetup AS devtools
-
-# Set default Python version
-# ('system' to use system Python, 'latest' to use latest Homebrew Python, or specify version like '3.9', '3.10', etc.)
-ARG PYTHON_VERSION=latest
-
-RUN apt-get update \
-  && apt-get -y install --no-install-recommends \
-  gnupg \
-  software-properties-common \
-  && apt-get clean -y \
-  && rm -rf /var/lib/apt/lists/*
-
-# Install base Python version and tools
-RUN if [ "$PYTHON_VERSION" = "system" ] ; then \
-  apt-get update \
-  && apt-get -y install --no-install-recommends \
-  # Python and related tools
-  python3 \
-  python3-pip \
-  python3-venv \
-  python3-dev \
-  pipx \
-  && apt-get clean -y \
-  && rm -rf /var/lib/apt/lists/*; \
-  fi
-
-# Install Node.js (LTS version) and npm
-RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
-  && apt-get -y install --no-install-recommends \
-  nodejs \
-  && apt-get clean -y \
-  && rm -rf /var/lib/apt/lists/*
-
-# Switch to non-root user
-USER $USERNAME
-WORKDIR /home/$USERNAME
-
-# Install Homebrew for the non-root user
-# Note: Homebrew on Linux doesn't require admin privileges when installed in home directory
-RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
 # Ensure Homebrew is properly configured
 # The brew shellenv line exports HOMEBREW_PREFIX, HOMEBREW_CELLAR,
 # and HOMEBREW_REPOSITORY (INFOPATH is also set),
 # in addition to prepending the brew 'bin' and 'sbin' to the PATH.
-RUN echo >> /home/$USERNAME/.bashrc \
-  && echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/$USERNAME/.bashrc \
-  && cat >> /home/$USERNAME/.profile <<EOF
+RUN cat >> /etc/skel/.bashrc <<EOF
+
+if [ -x /home/linuxbrew/.linuxbrew/bin/brew ]
+then
+  eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+fi
+EOF
+
+RUN cat >> /etc/skel/.profile <<EOF
 
 # https://docs.brew.sh/Shell-Completion
 if type brew &>/dev/null
@@ -172,43 +150,123 @@ then
 fi
 EOF
 
-RUN /home/linuxbrew/.linuxbrew/bin/brew update \
-  && if [ "$PYTHON_VERSION" = "latest" ] ; then \
-  /home/linuxbrew/.linuxbrew/bin/brew install python3; \
-  elif [ "$PYTHON_VERSION" != "system" -a "$(python3 --version | awk -F. '{print $1"."$2}')" != "Python ${PYTHON_VERSION}" ] ; then \
-  /home/linuxbrew/.linuxbrew/bin/brew install python@${PYTHON_VERSION}; \
+# Create a new non-root user with sudo privileges
+RUN groupadd --gid $USER_GID $USERNAME \
+  && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME -s /bin/bash \
+  && echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
+  && chmod 0440 /etc/sudoers.d/$USERNAME
+
+# Set default password for root user to 'docker'
+# Only for development purposes; can be changed at runtime
+# DO NOT use in production environments
+# Avoid using 'chpasswd' with here-string (e.g. chpasswd <<<"root:docker") as it may not be supported in some shells
+RUN if [ "$DEFAULT_ROOT_PASS" = "true" ] ; then \
+  $LOGGER "Setting default root password to 'docker' (for development purposes only)"; \
+  echo "root:docker" | chpasswd; \
+  fi
+
+# Install Homebrew for the non-root user
+# Note: Homebrew on Linux doesn't require admin privileges when installed in home directory
+USER $USERNAME
+
+RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Set USER back to root for next stage
+USER root
+
+
+FROM devuser AS devtools
+
+# Set default Python version
+# ('system' to use system Python, 'latest' to use latest Homebrew Python, or specify version like '3.9', '3.10', etc.)
+ARG PYTHON_VERSION=latest
+
+ENV RESET_ROOT_PASS=true
+
+RUN apt-get update \
+  && apt-get -y install --no-install-recommends \
+  # Supporting tools for installations
+  gnupg \
+  software-properties-common \
+  && if [ "$PYTHON_VERSION" = "system" ] ; then \
+    # Python and related tools
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-dev \
+    pipx; \
   fi \
-  && if [ "$PYTHON_VERSION" != "system" ] ; then \
-  /home/linuxbrew/.linuxbrew/bin/brew install pipx; \
-  fi \
-  && /home/linuxbrew/.linuxbrew/bin/brew install \
-  cfn-lint \
-  pre-commit
+  && apt-get clean -y \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js (LTS version) and npm
+RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+  && apt-get -y install --no-install-recommends nodejs \
+  && apt-get clean -y \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN touch "/docker-entrypoint.sh" \
+  && chmod +x /docker-entrypoint.sh \
+  && cat > "/docker-entrypoint.sh" <<EOF
+#!/bin/sh
+
+set -e
+
+if [ "\$RESET_ROOT_PASS" = "true" ] ; then
+  printf "\033[1m%s\033[0m\n" "Updating root password ..."
+  sudo passwd root
+fi
+
+/usr/games/fortune | /usr/games/cowsay
+
+exec "\$@"
+EOF
+
+# Switch to non-root user
+USER $USERNAME
+WORKDIR /home/$USERNAME
 
 # Needed to properly reference target version of python3
 ENV PATH="/home/linuxbrew/.linuxbrew/opt/python3/bin:${PATH}"
 
-# Configure pipx, and install Poetry and uv
-RUN if [ "$PYTHON_VERSION" = "system" ] ; then \
-  pipx install poetry uv; \
+RUN /home/linuxbrew/.linuxbrew/bin/brew update \
+  && if [ "$PYTHON_VERSION" = "latest" ] ; then \
+    /home/linuxbrew/.linuxbrew/bin/brew install python3; \
+  elif [ "$PYTHON_VERSION" != "system" -a "$(python3 --version | awk -F. '{print $1"."$2}')" != "Python ${PYTHON_VERSION}" ] ; then \
+    /home/linuxbrew/.linuxbrew/bin/brew install python@${PYTHON_VERSION}; \
+  fi \
+  && if [ "$PYTHON_VERSION" != "system" ] ; then \
+    /home/linuxbrew/.linuxbrew/bin/brew install pipx; \
+  fi \
+  # Configure pipx, and install Poetry and uv
+  && if [ "$PYTHON_VERSION" = "system" ] ; then \
+    pipx install poetry uv; \
   else \
-  /home/linuxbrew/.linuxbrew/bin/pipx install poetry uv; \
-  fi
+    /home/linuxbrew/.linuxbrew/bin/pipx install poetry uv; \
+  fi \
+  && /home/linuxbrew/.linuxbrew/bin/brew install \
+    cfn-lint \
+    pre-commit
 
 # Verify installations
 RUN git --version && python3 --version && node --version && npm --version
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
+
+CMD ["/bin/bash"]
 
 
 FROM devtools AS cloudtools
 
 USER root
 
-RUN if [ "$(uname -m)" = "x86_64" ] ; then \
-  # Install AWS CLI v2 for x86_64
-  curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"; \
+RUN if [ "$(uname -m)" = "x86_64" ] \
+  then \
+    # Install AWS CLI v2 for x86_64
+    curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"; \
   else \
-  # uname -m must be aarch64
-  curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"; \
+    # uname -m must be aarch64
+    curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"; \
   fi \
   && unzip -o awscliv2.zip \
   && ./aws/install --update \
@@ -261,24 +319,19 @@ USER $USERNAME
 RUN aws --version && terraform version && gh --version
 
 
-FROM usersetup AS devcontainer
+# --------------------------------------------------------------
+# THIS IS THE `devcontainer` TARGET
+# --------------------------------------------------------------
+FROM devuser AS devcontainer
+
+# Set default to not reset root password, in case devcontainer inherits from devtools or cloudtools
+# Precautionary measure to avoid interactive prompt when running devcontainer
+ENV RESET_ROOT_PASS=false
 
 # Switch to non-root user
 USER $USERNAME
 WORKDIR /home/$USERNAME
 
-# Install Homebrew for the non-root user
-# Note: Homebrew on Linux doesn't require admin privileges when installed in home directory
-RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# Ensure Homebrew is properly configured
-# The brew shellenv line exports HOMEBREW_PREFIX, HOMEBREW_CELLAR,
-# and HOMEBREW_REPOSITORY (INFOPATH is also set),
-# in addition to prepending the brew 'bin' and 'sbin' to the PATH.
-RUN echo >> /home/$USERNAME/.bashrc \
-  && echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/$USERNAME/.bashrc
-
-# Update Homebrew and install some packages
 RUN /home/linuxbrew/.linuxbrew/bin/brew update \
   && /home/linuxbrew/.linuxbrew/bin/brew install \
   cfn-lint \
@@ -291,6 +344,9 @@ LABEL org.opencontainers.image.title="$REPO_NAME:devcontainer"
 LABEL org.opencontainers.image.source=https://github.com/$REPO_NAMESPACE/$REPO_NAME
 LABEL org.opencontainers.image.description="A simple Debian-based Docker image with essential development tools and Homebrew."
 LABEL org.opencontainers.image.licenses=MIT
+
+CMD ["/bin/bash"]
+# --------------------------------------------------------------
 
 
 FROM devtools AS codeserver
@@ -316,7 +372,6 @@ RUN apt-get update \
 
 RUN touch "/start-code-server.sh" \
   && chmod +x /start-code-server.sh \
-  && chown $USERNAME:$USERNAME "/start-code-server.sh" \
   && cat > "/start-code-server.sh" <<EOF
 #!/bin/sh
 
@@ -365,18 +420,24 @@ done
     "\$HOME/workspace"
 
 # Ensure all parameters are set
+config_only=false
 while [ "\$#" -gt 0 ] ; do
   case "\$1" in
+    --config-only)
+      shift
+      config_only=true
+      break
+      ;;
     --bind-addr)
-      bind_addr="\${2:-\$BIND_ADDR}"
+      bind_addr="\${2-}"
       shift 2
       ;;
     --auth)
-      auth="\${2:-\$auth}"
+      auth="\${2-}"
       shift 2
       ;;
     --cert)
-      cert="\${2:-false}"
+      cert="\${2-}"
       shift 2
       ;;
     --)
@@ -391,31 +452,47 @@ done
 # Create config file to prevent one from being auto-generated
 # with incorrect values (since parameters are passed on CLI)
 cat > "\$CODE_SERVER_CONFIG" <<EOT
-bind-addr: \$bind_addr
-auth: \$auth
+bind-addr: \${bind_addr:-\$BIND_ADDR}
+auth: \${auth:-password}
 password: \${PASSWORD:-password}
-cert: \$cert
+cert: \${cert:-false}
 EOT
 
-# Start code-server with the specified parameters
-exec /home/linuxbrew/.linuxbrew/opt/code-server/bin/code-server \\
-  --bind-addr \$bind_addr --auth \$auth --cert \$cert \\
-  --extensions-dir \$extensions_dir \\
-  "\$@"
+if [ "\$config_only" != "true" ] ; then
+  if [ -n "\${1-}" ] ; then
+    $LOGGER "Starting code-server with workspace: \${1}"
+  else
+    $LOGGER "Starting code-server without a workspace"
+  fi
+
+  # Start code-server with the specified parameters
+  exec /home/linuxbrew/.linuxbrew/opt/code-server/bin/code-server \\
+    --bind-addr \$bind_addr --auth \$auth --cert \$cert \\
+    --extensions-dir \$extensions_dir \\
+    "\${@:-.}"
+fi
 EOF
 
 USER $USERNAME
 
-RUN /home/linuxbrew/.linuxbrew/bin/brew install \
+RUN /home/linuxbrew/.linuxbrew/bin/brew update \
+  && /home/linuxbrew/.linuxbrew/bin/brew install \
   cfn-lint \
   pre-commit \
   code-server
 
 EXPOSE 8080
 
+WORKDIR /home/$USERNAME/workspace
+
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
-CMD ["/start-code-server.sh"]
+# CMD ["/start-code-server.sh"]
+CMD ["/bin/sh", "-c", "/start-code-server.sh \
+  --config-only \
+  && exec /home/linuxbrew/.linuxbrew/opt/code-server/bin/code-server \
+  --extensions-dir $(dirname $CODE_SERVER_EXTENSIONS) \
+  ${@:-.}"]
 
 
 FROM base AS production
@@ -428,6 +505,9 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# USER ubuntu
+# WORKDIR /home/ubuntu
 
 # Default command
 CMD ["/bin/bash"]

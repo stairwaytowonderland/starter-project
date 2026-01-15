@@ -14,6 +14,8 @@ load_env() {
 }
 
 main() {
+  # Declare script path variables in local scope since this is called from other scripts
+  # ---------------------------------------
   if [ -z "$0" ] ; then
     echo "Cannot determine script path"
     exit 1
@@ -21,6 +23,7 @@ main() {
 
   local script_name="$0"
   local script_dir="$(cd "$(dirname "$script_name")" && pwd)"
+  # ---------------------------------------
 
   local default_env_file="${script_dir}/../../../.env"
   local from_script="${1:-false}"
