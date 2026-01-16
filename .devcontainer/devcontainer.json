@@ -9,7 +9,9 @@
 	// 		// "VARIANT": "latest",
 	// 		"USERNAME": "vscode",
 	// 		"USER_UID": "1000",
-	// 		"USER_GID": "1000"
+	// 		"USER_GID": "1000",
+	// 		"TIMEZONE": "America/Chicago",
+	// 		"PYTHON_VERSION": "devcontainer"
 	// 	}
 	// },
 	// Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root
@@ -51,7 +53,8 @@
 		"ghcr.io/devcontainers-extra/features/prettier": {},
 		"ghcr.io/devcontainers-extra/features/pylint": {},
 		"ghcr.io/devcontainers-extra/features/black": {},
-		"ghcr.io/devcontainers-extra/features/isort": {}
+		"ghcr.io/devcontainers-extra/features/isort": {},
+		"ghcr.io/devcontainers-extra/features/pre-commit:2": {}
 
 		// The following features are commented out for faster builds, but can be enabled if needed
 		// ---------------------------------------

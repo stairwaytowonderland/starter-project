@@ -144,11 +144,11 @@ set -eu
 
 term=\${1:-/usr/local/sbin}
 search=\$(echo "\$PATH" | awk -F"\${term}:" '{print \$2}')
-replace=\$(cat /etc/environment | sed -E 's|^PATH=\"(.*)\"|\1|g' 2>/dev/null)
+replace=\$(sed -nE '1s|^PATH=\"(.*)\"|\1|p' /etc/environment 2>/dev/null)
 
 if ! echo "\$PATH" | grep -q "\$replace" ; then
   replaced=\$(echo "\$PATH" | sed "s|\$search|\$replace|g" 2>/dev/null)
-  PATH=\$(echo "\$replaced" | sed "s|\${term}:||")
+  PATH=\$(echo "\$replaced" | sed "s|\${term}:||" 2>/dev/null)
 fi
 
 # Remove duplicate entries from PATH
@@ -156,14 +156,14 @@ fi
 __path=\$PATH:
 PATH=
 while [ -n "\$__path" ]; do
-  x=\${__path%%:*} # Extract the first entry
+  x=\${__path%%:*}          # Extract the first entry
   case \$PATH: in
-      *:"\$x":*) ;;    # If already in PATH, do nothing
-      *) PATH=\$PATH:\$x;; # Otherwise, append it
+      *:"\$x":*) ;;         # If already in PATH, do nothing
+      *) PATH=\$PATH:\$x;;  # Otherwise, append it
   esac
-  __path=\${__path#*:} # Remove the first entry from the list
+  __path=\${__path#*:}      # Remove the first entry from the list
 done
-PATH=\${PATH#:} # Remove the leading colon
+PATH=\${PATH#:}             # Remove the leading colon
 
 printf "%s" "\$PATH"
 EOF
@@ -212,21 +212,36 @@ RUN if [ "$IMAGE_NAME" = "ubuntu" ]; then \
     fi; \
   fi
 
+RUN test "${PYTHON_VERSION}" = "system" || \
+  cat >> /etc/skel/.bashrc <<EOF
+
 # Ensure Homebrew is properly configured
 # The brew shellenv line exports HOMEBREW_PREFIX, HOMEBREW_CELLAR,
 # and HOMEBREW_REPOSITORY (INFOPATH is also set),
 # in addition to prepending the brew 'bin' and 'sbin' to the PATH.
-RUN cat >> /etc/skel/.bashrc <<EOF
-
 if type "$DEFAULT_BREW_PATH" &>/dev/null
 then
   eval "\$($DEFAULT_BREW_PATH shellenv)"
 fi
 EOF
 
-RUN test "${PYTHON_VERSION}" = "system" || cat >> /etc/skel/.bashrc <<EOF
+RUN cat >> /etc/skel/.bashrc <<EOF
 
-PATH="\$(PATH="/home/linuxbrew/.linuxbrew/opt/python3/bin:\${PATH}" $FIXPATH)"
+if type /usr/local/python/current/bin/python3 &>/dev/null
+then
+  PATH="\$(PATH="/usr/local/python/current/bin:\${PATH}" $FIXPATH)"
+elif test "${PYTHON_VERSION}" != "system"
+then
+  if type brew &>/dev/null
+  then
+    # PYTHON_BREW_PATH="\$(brew --prefix python3)/bin"
+    PYTHON_BREW_PATH="\$(brew --prefix)/opt/python3/bin"
+    if test -d "\${PYTHON_BREW_PATH}"
+    then
+      PATH="\$(PATH="\${PYTHON_BREW_PATH}:\${PATH}" $FIXPATH)"
+    fi
+  fi
+fi
 EOF
 
 RUN cat >> /etc/skel/.profile <<EOF
@@ -330,22 +345,25 @@ EOF
 # Switch to non-root user
 USER $USERNAME
 
-# Install Python via Homebrew, pipx, Poetry, uv, and other dev tools via Homebrew
-RUN test "$NO_BREW_UPDATE" = "true" || $DEFAULT_BREW_PATH update \
+# Install Python via Homebrew, pipx, Poetry, uv, and other dev tools via Homebrew.
+# Do nothing if PYTHON_VERSION is 'devcontainer' or matches the USERNAME.
+# USERNAME cannot be 'system' or 'latest'.
+RUN test "$PYTHON_VERSION" = "devcontainer" -o test "$PYTHON_VERSION" = "$USERNAME" || \
+    test "$NO_BREW_UPDATE" = "true" || $DEFAULT_BREW_PATH update \
   && if [ "$PYTHON_VERSION" = "latest" ] ; then \
     $DEFAULT_BREW_PATH install python3; \
   elif [ "$PYTHON_VERSION" != "system" -a "$(python3 --version | awk -F. '{print $1"."$2}')" != "Python ${PYTHON_VERSION}" ] ; then \
     $DEFAULT_BREW_PATH install python@${PYTHON_VERSION}; \
   fi \
+  # Install pipx after Python
   && if [ "$PYTHON_VERSION" != "system" ] ; then \
     $DEFAULT_BREW_PATH install pipx; \
   fi \
-  # Configure pipx, and install Poetry and uv
-  && export PATH="$HOME/.local/bin:${PATH}" \
+  # Configure pipx, and install Poetry and uv after ensuring pipx is installed
   && if [ "$PYTHON_VERSION" = "system" ] ; then \
     pipx install poetry uv; \
   else \
-    /home/linuxbrew/.linuxbrew/bin/pipx install poetry uv; \
+    "$(dirname $DEFAULT_BREW_PATH)/pipx" install poetry uv; \
   fi \
   && $DEFAULT_BREW_PATH install \
     cfn-lint \
@@ -438,9 +456,7 @@ USER $USERNAME
 # WORKDIR /home/$USERNAME
 
 RUN test "$NO_BREW_UPDATE" = "true" || $DEFAULT_BREW_PATH update \
-  && $DEFAULT_BREW_PATH install \
-  cfn-lint \
-  pre-commit
+  && $DEFAULT_BREW_PATH install cfn-lint
 
 # Set the default working directory
 WORKDIR $DEFAULT_WORKSPACE
