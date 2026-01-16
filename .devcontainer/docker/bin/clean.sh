@@ -26,4 +26,4 @@ com+=("$(docker image ls -f dangling=true -q)")
 # com+=(--volumes)
 
 set -- "${com[@]}"
-. "$script_dir/exec_com.sh" "$@"
+. "$script_dir/exec-com.sh" "$@"

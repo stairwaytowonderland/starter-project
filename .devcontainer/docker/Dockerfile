@@ -17,10 +17,22 @@ ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 ARG PASSGEN=/passgen.sh
 ARG LOGGER=/logger.sh
-
+ARG FIXPATH=/fixpath.sh
+ARG TIMEZONE=UTC
 # Repository information (required for image labels)
 ARG REPO_NAME=devcontainer
 ARG REPO_NAMESPACE=devcontainer
+# Package management control
+ARG DEV=false
+ARG NO_BREW_UPDATE=$DEV
+# Other
+ARG DEFAULT_PASS_LENGTH=32
+ARG DEFAULT_PASS_CHARSET='a-zA-Z0-9'
+ARG DEFAULT_WORKSPACE=/home/$USERNAME/workspace
+
+ENV TZ=$TIMEZONE
+ENV DEV=$DEV
+ENV DEFAULT_WORKSPACE=$DEFAULT_WORKSPACE
 
 # Update and install essential packages
 RUN \
@@ -31,21 +43,21 @@ RUN \
   # Update package lists and install packages
   apt-get update \
   && apt-get -y install --no-install-recommends \
-  # Essential build tools
-  build-essential \
-  curl \
-  wget \
-  unzip \
-  ca-certificates \
-  # Additional utilities
-  vim \
-  nano \
-  less \
-  procps \
-  lsb-release \
-  tzdata \
-  jq \
-  yq \
+    # Essential build tools
+    build-essential \
+    curl \
+    wget \
+    unzip \
+    ca-certificates \
+    # Additional utilities
+    vim \
+    nano \
+    less \
+    procps \
+    lsb-release \
+    tzdata \
+    jq \
+    yq \
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/*
 
@@ -56,6 +68,14 @@ RUN touch "$LOGGER" \
 
 # Simple logger script
 
+# Usage: [LEVEL=<level>] $LOGGER <message>
+#
+# Arguments:
+#   message: Message to log
+#
+# Output:
+#   Logs message with timestamp and log level (default: info)
+
 LEVEL="\${LEVEL:-info}"
 
 log() {
@@ -65,7 +85,7 @@ log() {
 
 main() {
   if [ "\$#" -lt 1 ] ; then
-    LEVEL=error log "Usage: logger.sh <message>"
+    LEVEL=error log "Usage: [LEVEL=<level>] $LOGGER <message>"
     exit 1
   fi
   # Log the message
@@ -81,43 +101,115 @@ RUN touch "$PASSGEN" \
   && cat > "$PASSGEN" <<EOF
 #!/bin/sh
 
-# Generate a random 32-character alphanumeric password
-LC_ALL=C tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c${1:-32}
+# Generate a random $DEFAULT_PASS_LENGTH-character (unless specified) alphanumeric password
+
+# Usage: $PASSGEN [length] [charset]
+#
+# Arguments:
+#   length: Length of password to generate (default: $DEFAULT_PASS_LENGTH)
+#   charset: Characters to use for password generation (default: $DEFAULT_PASS_CHARSET)
+#
+# Output:
+#   Randomly generated password
+
+LC_ALL=C tr -dc "${2:-$DEFAULT_PASS_CHARSET}" < /dev/urandom | head -c${1:-$DEFAULT_PASS_LENGTH}
+EOF
+
+RUN if [ "$TIMEZONE" != "UTC" ] ; then \
+  ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime \
+      && dpkg-reconfigure -f noninteractive tzdata \
+      && $LOGGER "Timezone set to '$TIMEZONE'"; \
+  fi
+
+RUN touch "$FIXPATH" \
+  && chmod +x $FIXPATH \
+  && cat > "$FIXPATH" <<EOF
+#!/bin/sh
+
+set -eu
+
+# Fix PATH to use the PATH variable from /etc/environment
+
+# Usage: $FIXPATH [term]
+#
+# Arguments:
+#   term: Term to search for in PATH (default: /usr/local/sbin)
+#        Expected to be the first common entry in the
+#        /etc/environment PATH and exported PATH. Typically
+#        the first entry in PATH, and usually /usr/local/sbin
+#        for Debian-based systems.
+#
+# Output:
+#   Fixed PATH string
+
+term=\${1:-/usr/local/sbin}
+search=\$(echo "\$PATH" | awk -F"\${term}:" '{print \$2}')
+replace=\$(cat /etc/environment | sed -E 's|^PATH=\"(.*)\"|\1|g' 2>/dev/null)
+
+if ! echo "\$PATH" | grep -q "\$replace" ; then
+  replaced=\$(echo "\$PATH" | sed "s|\$search|\$replace|g" 2>/dev/null)
+  PATH=\$(echo "\$replaced" | sed "s|\${term}:||")
+fi
+
+# Remove duplicate entries from PATH
+# https://unix.stackexchange.com/questions/40749/remove-duplicate-path-entries-with-awk-command
+__path=\$PATH:
+PATH=
+while [ -n "\$__path" ]; do
+  x=\${__path%%:*} # Extract the first entry
+  case \$PATH: in
+      *:"\$x":*) ;;    # If already in PATH, do nothing
+      *) PATH=\$PATH:\$x;; # Otherwise, append it
+  esac
+  __path=\${__path#*:} # Remove the first entry from the list
+done
+PATH=\${PATH#:} # Remove the leading colon
+
+printf "%s" "\$PATH"
 EOF
 
 
 FROM base AS devuser
 
+# Set default Python version
+# ('system' to use system Python, 'latest' to use latest Homebrew Python, or specify version like '3.9', '3.10', etc.)
 ARG PYTHON_VERSION=latest
+# Whether to set default root password to 'docker' at build time
+# (for development purposes only; password can be changed at runtime)
+ARG DEFAULT_ROOT_PASS=$DEV
+# Default path to Homebrew binary (for convenience; not likely to change)
+ARG DEFAULT_BREW_PATH=/home/linuxbrew/.linuxbrew/bin/brew
 
-ENV DEFAULT_ROOT_PASS=true
+# Export PYTHON_VERSION for convenience
+ENV PYTHON_VERSION=$PYTHON_VERSION
+# Update PATH here so that all shells contain the updated PATH
+ENV PATH="/home/$USERNAME/.local/bin:${PATH}"
 
 # Install sudo and fun packages
-# We don't want to use --no-install-recommends here,
-# since the games (and possibly sudo) may depend on some recommended packages.
 RUN apt-get update \
+  && apt-get -y install --no-install-recommends \
+    # Install sudo here so production image doesn't have it
+    sudo \
+    # Git (required for homebrew installation)
+    git \
+  # We don't want to use --no-install-recommends here,
+  # since the games (and possibly sudo) may depend on some recommended packages.
   && apt-get -y install \
-  # Install sudo here so production image doesn't have it
-  sudo \
-  # Git (required for homebrew installation)
-  git \
-  # Fun
-  cowsay \
-  fortune \
+    # Fun
+    cowsay \
+    fortune \
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/*
-
-ENV PATH="/home/$USERNAME/.local/bin:${PATH}"
 
 # As of Ubuntu 24 (Noble Numbat), the Ubuntu base image comes with a non-root user ubuntu with UID 1000
 # Delete this user to avoid conflicts when creating our own non-root user
 RUN if [ "$IMAGE_NAME" = "ubuntu" ]; then \
-  if id "ubuntu" &>/dev/null; then \
-  $LOGGER "Deleting user 'ubuntu' for $IMAGE_NAME" && userdel -f -r ubuntu \
-  || LEVEL=error $LOGGER "Failed to delete ubuntu user for $IMAGE_NAME"; \
-  else \
-  $LOGGER "User 'ubuntu' does not exist for $IMAGE_NAME"; \
-  fi; \
+    if id "ubuntu" &>/dev/null; then \
+      $LOGGER "Deleting user 'ubuntu' for $IMAGE_NAME" && userdel -f -r ubuntu \
+        || LEVEL=error $LOGGER "Failed to delete ubuntu user for $IMAGE_NAME"; \
+    else \
+      $LOGGER "User 'ubuntu' does not exist for $IMAGE_NAME"; \
+    fi; \
   fi
 
 # Ensure Homebrew is properly configured
@@ -126,10 +218,15 @@ RUN if [ "$IMAGE_NAME" = "ubuntu" ]; then \
 # in addition to prepending the brew 'bin' and 'sbin' to the PATH.
 RUN cat >> /etc/skel/.bashrc <<EOF
 
-if [ -x /home/linuxbrew/.linuxbrew/bin/brew ]
+if type "$DEFAULT_BREW_PATH" &>/dev/null
 then
-  eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+  eval "\$($DEFAULT_BREW_PATH shellenv)"
 fi
+EOF
+
+RUN test "${PYTHON_VERSION}" = "system" || cat >> /etc/skel/.bashrc <<EOF
+
+PATH="\$(PATH="/home/linuxbrew/.linuxbrew/opt/python3/bin:\${PATH}" $FIXPATH)"
 EOF
 
 RUN cat >> /etc/skel/.profile <<EOF
@@ -137,14 +234,14 @@ RUN cat >> /etc/skel/.profile <<EOF
 # https://docs.brew.sh/Shell-Completion
 if type brew &>/dev/null
 then
-  HOMEBREW_PREFIX="$(brew --prefix)"
-  if [[ -r "${HOMEBREW_PREFIX}/etc/profile.d/bash_completion.sh" ]]
+  HOMEBREW_PREFIX="\$(brew --prefix)"
+  if [[ -r "\${HOMEBREW_PREFIX}/etc/profile.d/bash_completion.sh" ]]
   then
-    source "${HOMEBREW_PREFIX}/etc/profile.d/bash_completion.sh"
+    source "\${HOMEBREW_PREFIX}/etc/profile.d/bash_completion.sh"
   else
-    for COMPLETION in "${HOMEBREW_PREFIX}/etc/bash_completion.d/"*
+    for COMPLETION in "\${HOMEBREW_PREFIX}/etc/bash_completion.d/"*
     do
-      [[ -r "${COMPLETION}" ]] && source "${COMPLETION}"
+      [[ -r "\${COMPLETION}" ]] && source "\${COMPLETION}"
     done
   fi
 fi
@@ -157,31 +254,35 @@ RUN groupadd --gid $USER_GID $USERNAME \
   && chmod 0440 /etc/sudoers.d/$USERNAME
 
 # Set default password for root user to 'docker'
-# Only for development purposes; can be changed at runtime
+# Only for development purposes; password can be changed at runtime
 # DO NOT use in production environments
 # Avoid using 'chpasswd' with here-string (e.g. chpasswd <<<"root:docker") as it may not be supported in some shells
 RUN if [ "$DEFAULT_ROOT_PASS" = "true" ] ; then \
-  $LOGGER "Setting default root password to 'docker' (for development purposes only)"; \
-  echo "root:docker" | chpasswd; \
+    $LOGGER "Setting default root password to 'docker' (for development purposes only)"; \
+    echo "root:docker" | chpasswd; \
   fi
 
 # Install Homebrew for the non-root user
 # Note: Homebrew on Linux doesn't require admin privileges when installed in home directory
 USER $USERNAME
+WORKDIR /home/$USERNAME
 
 RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # Set USER back to root for next stage
 USER root
 
+# Set default command to login shell
+CMD ["/bin/bash"]
+
 
 FROM devuser AS devtools
 
-# Set default Python version
-# ('system' to use system Python, 'latest' to use latest Homebrew Python, or specify version like '3.9', '3.10', etc.)
-ARG PYTHON_VERSION=latest
-
-ENV RESET_ROOT_PASS=true
+# Whether to reset root password at container startup
+# (true/false; default: $DEFAULT_ROOT_PASS build argument)
+ENV RESET_ROOT_PASS=$DEFAULT_ROOT_PASS
+# Needed to properly reference target version of python3
+# ENV PATH="/home/linuxbrew/.linuxbrew/opt/python3/bin:${PATH}"
 
 RUN apt-get update \
   && apt-get -y install --no-install-recommends \
@@ -217,34 +318,36 @@ if [ "\$RESET_ROOT_PASS" = "true" ] ; then
   sudo passwd root
 fi
 
-/usr/games/fortune | /usr/games/cowsay
+if type /usr/games/fortune >/dev/null 2>&1 \
+  && type /usr/games/cowsay >/dev/null 2>&1
+then
+  /usr/games/fortune | /usr/games/cowsay
+fi
 
 exec "\$@"
 EOF
 
 # Switch to non-root user
 USER $USERNAME
-WORKDIR /home/$USERNAME
 
-# Needed to properly reference target version of python3
-ENV PATH="/home/linuxbrew/.linuxbrew/opt/python3/bin:${PATH}"
-
-RUN /home/linuxbrew/.linuxbrew/bin/brew update \
+# Install Python via Homebrew, pipx, Poetry, uv, and other dev tools via Homebrew
+RUN test "$NO_BREW_UPDATE" = "true" || $DEFAULT_BREW_PATH update \
   && if [ "$PYTHON_VERSION" = "latest" ] ; then \
-    /home/linuxbrew/.linuxbrew/bin/brew install python3; \
+    $DEFAULT_BREW_PATH install python3; \
   elif [ "$PYTHON_VERSION" != "system" -a "$(python3 --version | awk -F. '{print $1"."$2}')" != "Python ${PYTHON_VERSION}" ] ; then \
-    /home/linuxbrew/.linuxbrew/bin/brew install python@${PYTHON_VERSION}; \
+    $DEFAULT_BREW_PATH install python@${PYTHON_VERSION}; \
   fi \
   && if [ "$PYTHON_VERSION" != "system" ] ; then \
-    /home/linuxbrew/.linuxbrew/bin/brew install pipx; \
+    $DEFAULT_BREW_PATH install pipx; \
   fi \
   # Configure pipx, and install Poetry and uv
+  && export PATH="$HOME/.local/bin:${PATH}" \
   && if [ "$PYTHON_VERSION" = "system" ] ; then \
     pipx install poetry uv; \
   else \
     /home/linuxbrew/.linuxbrew/bin/pipx install poetry uv; \
   fi \
-  && /home/linuxbrew/.linuxbrew/bin/brew install \
+  && $DEFAULT_BREW_PATH install \
     cfn-lint \
     pre-commit
 
@@ -253,6 +356,7 @@ RUN git --version && python3 --version && node --version && npm --version
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 
+# Set default command to login shell
 CMD ["/bin/bash"]
 
 
@@ -275,11 +379,12 @@ RUN if [ "$(uname -m)" = "x86_64" ] \
   && cat >> /home/$USERNAME/.bashrc <<EOF
 
 # Enable AWS CLI bash completion
-if command -v aws_completer >/dev/null 2>&1; then
+if type aws_completer &>/dev/null
+then
   complete -C aws_completer aws
-elif [ -x "/usr/local/bin/aws_completer" ]; then
+elif type /usr/local/bin/aws_completer &>/dev/null; then
   complete -C "/usr/local/bin/aws_completer" aws
-elif [ -x "/opt/homebrew/bin/aws_completer" ]; then
+elif type /opt/homebrew/bin/aws_completer &>/dev/null; then
   complete -C "/opt/homebrew/bin/aws_completer" aws
 fi
 EOF
@@ -330,35 +435,33 @@ ENV RESET_ROOT_PASS=false
 
 # Switch to non-root user
 USER $USERNAME
-WORKDIR /home/$USERNAME
+# WORKDIR /home/$USERNAME
 
-RUN /home/linuxbrew/.linuxbrew/bin/brew update \
-  && /home/linuxbrew/.linuxbrew/bin/brew install \
+RUN test "$NO_BREW_UPDATE" = "true" || $DEFAULT_BREW_PATH update \
+  && $DEFAULT_BREW_PATH install \
   cfn-lint \
   pre-commit
 
 # Set the default working directory
-WORKDIR /home/$USERNAME/workspace
+WORKDIR $DEFAULT_WORKSPACE
 
 LABEL org.opencontainers.image.title="$REPO_NAME:devcontainer"
 LABEL org.opencontainers.image.source=https://github.com/$REPO_NAMESPACE/$REPO_NAME
 LABEL org.opencontainers.image.description="A simple Debian-based Docker image with essential development tools and Homebrew."
 LABEL org.opencontainers.image.licenses=MIT
-
-CMD ["/bin/bash"]
 # --------------------------------------------------------------
 
 
 FROM devtools AS codeserver
 
-# Don't put CODE_SERVER_CONFIG in workspace directly to avoid issues with volume mounts
-ENV CODE_SERVER_CONFIG=/home/$USERNAME/.config/code-server/config.yaml
-ENV CODE_SERVER_EXTENSIONS=/home/$USERNAME/workspace/.code-server/extensions/extensions.json
-
 ARG BIND_ADDR=0.0.0.0:8080
 
+# Don't put CODE_SERVER_CONFIG in workspace directly to avoid issues with volume mounts
+ENV CODE_SERVER_WORKSPACE=$DEFAULT_WORKSPACE
+ENV CODE_SERVER_CONFIG=/home/$USERNAME/.config/code-server/config.yaml
+ENV CODE_SERVER_EXTENSIONS=$DEFAULT_WORKSPACE/.code-server/extensions/extensions.json
+
 ENV BIND_ADDR=$BIND_ADDR
-ENV DEV=false
 ENV DEBUG=false
 
 USER root
@@ -377,7 +480,7 @@ RUN touch "/start-code-server.sh" \
 
 [ \$DEBUG != "true" ] || exec /bin/bash
 
-if [ "\$DEV" = "true" ] ; then
+if [ "\${DEV:-$DEV}" = "true" ] ; then
   $LOGGER "Running in DEV mode: disabling authentication for code-server"
   auth="none"
 else
@@ -397,11 +500,11 @@ if [ -f "\$CODE_SERVER_EXTENSIONS" ]; then
   $LOGGER "Installing extensions from \$CODE_SERVER_EXTENSIONS"
   extension_ids=\$(jq -r '.[].identifier.id' "\$CODE_SERVER_EXTENSIONS")
 else
-  $LOGGER "Installing extensions from \$HOME/workspace/.vscode/extensions.json"
+  $LOGGER "Installing extensions from \$CODE_SERVER_WORKSPACE/.vscode/extensions.json"
   # Use cpp preprocessor to strip comments in JSON
-  # extension_ids=\$(cpp -P -E "\$HOME/workspace/.devcontainer/devcontainer.json" \\
+  # extension_ids=\$(cpp -P -E "\$CODE_SERVER_WORKSPACE/.devcontainer/devcontainer.json" \\
   # 	| jq -r '.customizations.vscode.extensions[]')
-  extension_ids=\$(cpp -P -E "\$HOME/workspace/.vscode/extensions.json" \\
+  extension_ids=\$(cpp -P -E "\$CODE_SERVER_WORKSPACE/.vscode/extensions.json" \\
     | jq -r '.recommendations[]')
 fi
 for extension_id in \$extension_ids; do
@@ -417,7 +520,7 @@ done
     --bind-addr "\$BIND_ADDR" \
     --auth "\$auth" \
     --cert false \
-    "\$HOME/workspace"
+    "\$CODE_SERVER_WORKSPACE"
 
 # Ensure all parameters are set
 config_only=false
@@ -465,34 +568,37 @@ if [ "\$config_only" != "true" ] ; then
     $LOGGER "Starting code-server without a workspace"
   fi
 
+  workspace_dir="\${CODE_SERVER_WORKSPACE:-.}"
+  [ -d "$workspace_dir" ] || \\
+    mkdir -p "$workspace_dir"
+
   # Start code-server with the specified parameters
+  set -x
   exec /home/linuxbrew/.linuxbrew/opt/code-server/bin/code-server \\
     --bind-addr \$bind_addr --auth \$auth --cert \$cert \\
     --extensions-dir \$extensions_dir \\
-    "\${@:-.}"
+    "\${@:-\$workspace_dir}"
 fi
 EOF
 
 USER $USERNAME
 
-RUN /home/linuxbrew/.linuxbrew/bin/brew update \
-  && /home/linuxbrew/.linuxbrew/bin/brew install \
-  cfn-lint \
-  pre-commit \
-  code-server
+RUN test "$NO_BREW_UPDATE" = "true" || $DEFAULT_BREW_PATH update \
+  && $DEFAULT_BREW_PATH install code-server
 
 EXPOSE 8080
 
-WORKDIR /home/$USERNAME/workspace
+WORKDIR $DEFAULT_WORKSPACE
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # CMD ["/start-code-server.sh"]
-CMD ["/bin/sh", "-c", "/start-code-server.sh \
-  --config-only \
-  && exec /home/linuxbrew/.linuxbrew/opt/code-server/bin/code-server \
-  --extensions-dir $(dirname $CODE_SERVER_EXTENSIONS) \
-  ${@:-.}"]
+CMD ["/bin/sh", "-c", "/start-code-server.sh --config-only && set -x ; exec \
+    /home/linuxbrew/.linuxbrew/opt/code-server/bin/code-server \
+      --bind-addr $BIND_ADDR \
+      --extensions-dir \
+      $(dirname $CODE_SERVER_EXTENSIONS) \
+      ${CODE_SERVER_WORKSPACE:-.}"]
 
 
 FROM base AS production

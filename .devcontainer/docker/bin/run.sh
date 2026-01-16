@@ -56,8 +56,13 @@ docker_tag="${IMAGE_NAME}:${DOCKER_TARGET}"
 
 echo "Running Docker container for ${REMOTE_USER}..."
 com=(docker run -it --rm)
-com+=("-e" "DEBUG=${DEBUG:-false}")
-com+=("-e" "DEV=${DEV:-false}")
+# TZ not needed, but included for reference and clarity
+com+=("-e" "TZ=${TIMEZONE:-America/Chicago}")
+if [ "${DEV:-false}" = "true" ] ; then
+  com+=("-e" "DEV=true")
+  com+=("-e" "RESET_ROOT_PASS=${RESET_ROOT_PASS:-false}")
+  com+=("-e" "DEBUG=${DEBUG:-false}")
+fi
 com+=("-v" "${DOCKER_CONTEXT}:${workspace_dir}")
 com+=("-p" "0.0.0.0:8080:8080")
 com+=("$docker_tag")
@@ -68,4 +73,4 @@ for arg in "$@" ; do
 done
 
 set -- "${com[@]}"
-. "$script_dir/exec_com.sh" "$@"
+. "$script_dir/exec-com.sh" "$@"

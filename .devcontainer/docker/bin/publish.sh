@@ -18,7 +18,7 @@ script_dir="$(cd "$(dirname "$script_name")" && pwd)"
 first_arg="${1-}"
 [ -z "$first_arg" ] || shift
 
-. "$script_dir/load_env.sh" "$script_dir/../../.."
+. "$script_dir/load-env.sh" "$script_dir/../../.."
 
 GITHUB_TOKEN="${GITHUB_TOKEN-}"
 GH_TOKEN="${GH_TOKEN:-$GITHUB_TOKEN}"
@@ -72,4 +72,4 @@ com=(docker push)
 com+=("$registry_url")
 
 set -- "${com[@]}"
-. "$script_dir/exec_com.sh" "$@"
+. "$script_dir/exec-com.sh" "$@"

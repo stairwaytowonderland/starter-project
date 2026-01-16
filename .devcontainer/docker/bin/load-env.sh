@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-load_env() {
+__load_env() {
   local env_file="${1}"
 
   if [ -f "${env_file}" -a -r "${env_file}" ] ; then
@@ -13,7 +13,7 @@ load_env() {
   fi
 }
 
-main() {
+load_env() {
   # Declare script path variables in local scope since this is called from other scripts
   # ---------------------------------------
   if [ -z "$0" ] ; then
@@ -25,7 +25,7 @@ main() {
   local script_dir="$(cd "$(dirname "$script_name")" && pwd)"
   # ---------------------------------------
 
-  local default_env_file="${script_dir}/../../../.env"
+  local default_env_file="${script_dir}/../.env"
   local from_script="${1:-false}"
 
   if [ -d "${1-}" ] ; then
@@ -38,7 +38,7 @@ main() {
     fi
   fi
 
-  load_env "$env_file"
+  __load_env "$env_file"
 }
 
-main "$@"
+load_env "$@"

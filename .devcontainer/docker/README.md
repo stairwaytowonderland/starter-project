@@ -6,10 +6,9 @@ _TODO_: Add complete details for each build target.
 
 ## Environment Variables
 
-1. Copy the [sample.env](../../sample.env) from the project root, and create a `.env` (also in the project root):
+1. Copy the [sample.env](./sample.env) and create a `.env`:
 
    ```bash
-   # From the project root ...
    cp sample.env .env
    ```
 
@@ -19,14 +18,13 @@ _TODO_: Add complete details for each build target.
    - **GITHUB_NAMESPACE**: Should be namespace owner of the repo (e.g. if the url is https://github.com/octocat/Hello-World, `GITHUB_NAMEPSACE` would be _'octocat'_)
    - **GITHUB_TOKEN**: The access token used to [publish](#publishsh) your image to the Github package registry.
 
-1. Optionally load the `.env` file into your environment (not needed since the provided scripts will load the file):
-
-   ```bash
-   # From the project root ...
-   # ... load .env file, exporting all variables
-
-   set -a; . .env; set +a
-   ```
+> [!TIP]
+> Optionally, manually load the `.env` file into your environment (not needed since the provided scripts will load the file):
+>
+> ```bash
+> # ... load .env file, exporting all variables
+> set -a; . .env; set +a
+> ```
 
 ## Folder Structure
 
@@ -34,13 +32,17 @@ _TODO_: Add complete details for each build target.
 <root>
 └── .devcontainer/
     └── docker/
+        ├── .env                # Your .env file (not in version control)
         ├── Dockerfile          # Multi-stage Dockerfile for building the development container
         ├── README.md           # This file
+        ├── sample.env          # The sample env file to be copied
         └── bin/                # Shell scripts for container lifecycle management
             ├── build.sh
-            ├── run.sh
+            ├── clean.sh
+            ├── exec-com.sh
+            ├── load-env.sh
             ├── publish.sh
-            └── clean.sh
+            └── run.sh
 ```
 
 ## Build Targets

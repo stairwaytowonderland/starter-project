@@ -44,7 +44,7 @@ else
   esac
 fi
 
-. "$script_dir/load_env.sh" "$script_dir/../../.."
+. "$script_dir/load-env.sh" "$script_dir/.."
 
 # Default repository info (must be provided as environment variables or build args)
 REPO_NAME="${REPO_NAME}"
@@ -92,12 +92,6 @@ com+=("--label" "org.opencontainers.image.title=$build_tag")
 com+=("--label" "org.opencontainers.image.source=https://github.com/$REPO_NAMESPACE/$REPO_NAME")
 com+=("--label" "org.opencontainers.image.description=A simple Debian-based Docker image with essential development tools and Homebrew.")
 com+=("--label" "org.opencontainers.image.licenses=MIT")
-# If multi-arch, use annotations instead of labels
-# https://docs.docker.com/reference/cli/docker/buildx/build/#annotation
-# com+=("--annotation" "org.opencontainers.image.title=$build_tag")
-# com+=("--annotation" "org.opencontainers.image.source=https://github.com/$REPO_NAMESPACE/$REPO_NAME")
-# com+=("--annotation" "org.opencontainers.image.description=A simple Debian-based Docker image with essential development tools and Homebrew.")
-# com+=("--annotation" "org.opencontainers.image.licenses=MIT")
 com+=("--target" "$DOCKER_TARGET")
 com+=("-t" "$build_tag")
 if [ -n "$REMOTE_USER" ] ; then
@@ -105,6 +99,8 @@ if [ -n "$REMOTE_USER" ] ; then
 fi
 com+=("--build-arg" "REPO_NAME=$REPO_NAME")
 com+=("--build-arg" "REPO_NAMESPACE=$REPO_NAMESPACE")
+com+=("--build-arg" "TIMEZONE=${TIMEZONE:-America/Chicago}")
+com+=("--build-arg" "DEV=${DEV:-false}")
 for arg in "$@" ; do
   if [ "$arg" != "$DOCKER_CONTEXT" ] ; then
     com+=("$arg")
@@ -113,4 +109,4 @@ done
 com+=("$DOCKER_CONTEXT")
 
 set -- "${com[@]}"
-. "$script_dir/exec_com.sh" "$@"
+. "$script_dir/exec-com.sh" "$@"
