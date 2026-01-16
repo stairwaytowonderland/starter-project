@@ -5,9 +5,9 @@
 # ---------------------------------------
 set -euo pipefail
 
-if [ -z "$0" ] ; then
-  echo "Cannot determine script path"
-  exit 1
+if [ -z "$0" ]; then
+    echo "Cannot determine script path"
+    exit 1
 fi
 
 script_name="$0"
@@ -29,28 +29,28 @@ REPO_NAME="${REPO_NAME-}"
 
 # Determine IMAGE_NAME
 IMAGE_NAME=${IMAGE_NAME:-$first_arg}
-if [ -z "$IMAGE_NAME" ] ; then
-  echo "Usage: $0 <image-name[:build_target]> [github-username] [image-version]"
-  exit 1
+if [ -z "$IMAGE_NAME" ]; then
+    echo "Usage: $0 <image-name[:build_target]> [github-username] [image-version]"
+    exit 1
 fi
-if awk -F':' '{print $2}' <<< "$IMAGE_NAME" >/dev/null 2>&1 ; then
-  DOCKER_TARGET="$(awk -F':' '{print $2}' <<< "$IMAGE_NAME")"
-  IMAGE_NAME="$(awk -F':' '{print $1}' <<< "$IMAGE_NAME")"
+if awk -F':' '{print $2}' <<<"$IMAGE_NAME" >/dev/null 2>&1; then
+    DOCKER_TARGET="$(awk -F':' '{print $2}' <<<"$IMAGE_NAME")"
+    IMAGE_NAME="$(awk -F':' '{print $1}' <<<"$IMAGE_NAME")"
 fi
 DOCKER_TARGET=${DOCKER_TARGET:-"devcontainer"}
 # Determine GITHUB_USER
-if [ $# -gt 0 ] ; then
-  GITHUB_USER="${1:-$REPO_NAMESPACE}"
-  shift
+if [ $# -gt 0 ]; then
+    GITHUB_USER="${1:-$REPO_NAMESPACE}"
+    shift
 fi
-if [ -z "${GITHUB_USER-}" ] ; then
-  echo "Please provide your GitHub username as the first argument or set the REPO_NAMESPACE environment variable."
-  exit 1
+if [ -z "${GITHUB_USER-}" ]; then
+    echo "Please provide your GitHub username as the first argument or set the REPO_NAMESPACE environment variable."
+    exit 1
 fi
 # Determine IMAGE_VERSION
-if [ $# -gt 0 ] ; then
-  IMAGE_VERSION="${1-}"
-  shift
+if [ $# -gt 0 ]; then
+    IMAGE_VERSION="${1-}"
+    shift
 fi
 IMAGE_VERSION=${IMAGE_VERSION:-"latest"}
 
@@ -61,8 +61,14 @@ registry_url="ghcr.io/${GITHUB_USER}/${docker_tag}"
 # Tag the image for GitHub Container Registry
 echo "Tagging Docker image for GitHub Container Registry..."
 # (set -x; docker tag "$build_tag" "$docker_tag")
-(set -x; docker tag "$build_tag" "$registry_url" || true)
-(set -x; docker rmi "$(docker images --filter label="org.opencontainers.image.title=${build_tag}" --filter dangling=true -q)" 2>/dev/null || true)
+(
+    set -x
+    docker tag "$build_tag" "$registry_url" || true
+)
+(
+    set -x
+    docker rmi "$(docker images --filter label="org.opencontainers.image.title=${build_tag}" --filter dangling=true -q)" 2>/dev/null || true
+)
 
 echo "Logging in to GitHub Container Registry..."
 echo $CR_PAT | docker login ghcr.io -u $GITHUB_USER --password-stdin

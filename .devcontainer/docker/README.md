@@ -4,28 +4,6 @@ A detailed guide to the Dockerfile.
 
 _TODO_: Add complete details for each build target.
 
-## Environment Variables
-
-1. Copy the [sample.env](./sample.env) and create a `.env`:
-
-   ```bash
-   cp sample.env .env
-   ```
-
-1. Now update the `.env` that was just created with the relevant information.
-
-   - **GITHUB_REPO**: Should be the name of your repository (e.g. if the url is https://github.com/octocat/Hello-World, `GITHUB_REPO` would be _'Hello-World'_).
-   - **GITHUB_NAMESPACE**: Should be namespace owner of the repo (e.g. if the url is https://github.com/octocat/Hello-World, `GITHUB_NAMEPSACE` would be _'octocat'_)
-   - **GITHUB_TOKEN**: The access token used to [publish](#publishsh) your image to the Github package registry.
-
-> [!TIP]
-> Optionally, manually load the `.env` file into your environment (not needed since the provided scripts will load the file):
->
-> ```bash
-> # ... load .env file, exporting all variables
-> set -a; . .env; set +a
-> ```
-
 ## Folder Structure
 
 ```
@@ -44,6 +22,27 @@ _TODO_: Add complete details for each build target.
             ├── publish.sh
             └── run.sh
 ```
+
+## Environment Variables
+
+1. Copy the [sample.env](./sample.env) and create a `.env`:
+
+    ```bash
+    cp sample.env .env
+    ```
+
+1. Now update the `.env` that was just created with the relevant information.
+    - **GITHUB_REPO**: Should be the name of your repository (e.g. if the url is https://github.com/octocat/Hello-World, `GITHUB_REPO` would be _'Hello-World'_).
+    - **GITHUB_NAMESPACE**: Should be namespace owner of the repo (e.g. if the url is https://github.com/octocat/Hello-World, `GITHUB_NAMEPSACE` would be _'octocat'_)
+    - **GITHUB_TOKEN**: The access token used to [publish](#publishsh) your image to the Github package registry.
+
+> [!TIP]
+> Optionally, manually load the `.env` file into your environment (not needed since the provided scripts will load the file):
+>
+> ```bash
+> # ... load .env file, exporting all variables
+> set -a; . .env; set +a
+> ```
 
 ## Build Targets
 

@@ -2,6 +2,7 @@
 # ./.devcontainer/docker/bin/build.sh \
 #   starter-project \
 #   --build-arg USERNAME=vscode \
+#   --build-arg PYTHON_VERSION=devcontainer \
 #   --no-cache
 #   --progress=plain
 #   .
@@ -9,9 +10,9 @@
 # ---------------------------------------
 set -euo pipefail
 
-if [ -z "$0" ] ; then
-  echo "Cannot determine script path"
-  exit 1
+if [ -z "$0" ]; then
+    echo "Cannot determine script path"
+    exit 1
 fi
 
 script_name="$0"
@@ -27,21 +28,25 @@ first_arg="${1-}"
 # (if so, do not consume it as the second argument)
 second_arg=""
 flag=false
-if [ $# -gt 0 ] ; then
-  case "$1" in
+if [ $# -gt 0 ]; then
+    case "$1" in
     -*) ;;
     "$last_arg"*)
-      [ $# -gt 1 ] || {
-        second_arg="$1" ; shift
-        last_arg=""
-      }
-      ;;
-    *) second_arg="$1" ; shift ;;
-  esac
+        [ $# -gt 1 ] || {
+            second_arg="$1"
+            shift
+            last_arg=""
+        }
+        ;;
+    *)
+        second_arg="$1"
+        shift
+        ;;
+    esac
 else
-  case "$first_arg" in
+    case "$first_arg" in
     "$last_arg"*) last_arg="" ;;
-  esac
+    esac
 fi
 
 . "$script_dir/load-env.sh" "$script_dir/.."
@@ -51,24 +56,24 @@ REPO_NAME="${REPO_NAME}"
 REPO_NAMESPACE="${REPO_NAMESPACE}"
 
 # Determine Docker context
-if [ -d "$last_arg" ] ; then
-  DOCKER_CONTEXT="$last_arg"
+if [ -d "$last_arg" ]; then
+    DOCKER_CONTEXT="$last_arg"
 else
-  DOCKER_CONTEXT="${DOCKER_CONTEXT:-"$script_dir/../../.."}"
+    DOCKER_CONTEXT="${DOCKER_CONTEXT:-"$script_dir/../../.."}"
 fi
-if [ ! -d "$DOCKER_CONTEXT" ] ; then
-  echo "Docker context directory not found at expected path: $DOCKER_CONTEXT"
-  exit 1
+if [ ! -d "$DOCKER_CONTEXT" ]; then
+    echo "Docker context directory not found at expected path: $DOCKER_CONTEXT"
+    exit 1
 fi
 # Determine IMAGE_NAME and DOCKER_TARGET
 IMAGE_NAME=${IMAGE_NAME:-$first_arg}
-if [ -z "$IMAGE_NAME" ] ; then
-  echo "Usage: $0 <image-name[:build_target]> [build-args...] [options] [context]"
-  exit 1
+if [ -z "$IMAGE_NAME" ]; then
+    echo "Usage: $0 <image-name[:build_target]> [build-args...] [options] [context]"
+    exit 1
 fi
-if awk -F':' '{print $2}' <<< "$IMAGE_NAME" >/dev/null 2>&1 ; then
-  DOCKER_TARGET="$(awk -F':' '{print $2}' <<< "$IMAGE_NAME")"
-  IMAGE_NAME="$(awk -F':' '{print $1}' <<< "$IMAGE_NAME")"
+if awk -F':' '{print $2}' <<<"$IMAGE_NAME" >/dev/null 2>&1; then
+    DOCKER_TARGET="$(awk -F':' '{print $2}' <<<"$IMAGE_NAME")"
+    IMAGE_NAME="$(awk -F':' '{print $1}' <<<"$IMAGE_NAME")"
 fi
 DOCKER_TARGET=${DOCKER_TARGET:-"devcontainer"}
 # Determine REMOTE_USER (the devcontainer non-root user, e.g., 'vscode' or 'devcontainer')
@@ -78,9 +83,9 @@ REMOTE_USER="${REMOTE_USER:-$second_arg}"
 dockerfile_path="$DOCKER_CONTEXT/.devcontainer/docker/Dockerfile"
 build_tag="${IMAGE_NAME}:${DOCKER_TARGET}"
 
-if [ ! -f "$dockerfile_path" ] ; then
-  echo "Dockerfile not found at expected path: $dockerfile_path"
-  exit 1
+if [ ! -f "$dockerfile_path" ]; then
+    echo "Dockerfile not found at expected path: $dockerfile_path"
+    exit 1
 fi
 
 echo "Building Docker image for $DOCKER_TARGET..."
@@ -94,18 +99,18 @@ com+=("--label" "org.opencontainers.image.description=A simple Debian-based Dock
 com+=("--label" "org.opencontainers.image.licenses=MIT")
 com+=("--target" "$DOCKER_TARGET")
 com+=("-t" "$build_tag")
-if [ -n "$REMOTE_USER" ] ; then
-  com+=("--build-arg" "USERNAME=$REMOTE_USER")
+if [ -n "$REMOTE_USER" ]; then
+    com+=("--build-arg" "USERNAME=$REMOTE_USER")
 fi
 # com+=("--build-arg" "PYTHON_VERSION=${PYTHON_VERSION:-devcontainer}")
 com+=("--build-arg" "REPO_NAME=$REPO_NAME")
 com+=("--build-arg" "REPO_NAMESPACE=$REPO_NAMESPACE")
 com+=("--build-arg" "TIMEZONE=${TIMEZONE:-America/Chicago}")
 com+=("--build-arg" "DEV=${DEV:-false}")
-for arg in "$@" ; do
-  if [ "$arg" != "$DOCKER_CONTEXT" ] ; then
-    com+=("$arg")
-  fi
+for arg in "$@"; do
+    if [ "$arg" != "$DOCKER_CONTEXT" ]; then
+        com+=("$arg")
+    fi
 done
 com+=("$DOCKER_CONTEXT")
 

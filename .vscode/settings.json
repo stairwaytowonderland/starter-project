@@ -43,6 +43,10 @@
 		"editor.defaultFormatter": "ms-azuretools.vscode-containers",
 		"editor.formatOnSave": false
 	},
+	"[shellscript]": {
+		"editor.defaultFormatter": "mkhl.shfmt",
+		"editor.formatOnSave": true
+	},
 	// If formatting isn't working after changing black-formatter.args ...
 	// In the Command Pallete search for 'Black Formatter: Restart Server'
 	/* Sample pyproject.toml
@@ -105,5 +109,56 @@
 		"!ImportNoChecks",
 		"!ImportNoChecks scalar"
 		// Add any other CloudFormation intrinsic functions you use
+	],
+	"better-byte.multilineComments": true,
+	"better-byte.highlightPlainText": false,
+	"better-byte.tags": [
+		{
+			"tag": "!",
+			"color": "#FF2D00",
+			"strikethrough": false,
+			"underline": false,
+			"backgroundColor": "transparent",
+			"bold": false,
+			"italic": false
+		},
+		{
+			"tag": "?",
+			"color": "#3498DB"
+		},
+		{
+			"tag": "//",
+			"color": "#474747",
+			"strikethrough": true
+		},
+		{
+			"tag": "TODO",
+			"color": "#000000",
+			"backgroundColor": "#FF8C00"
+		},
+		{
+			"tag": "*",
+			"color": "#28FF00"
+		},
+		{
+			"tag": "FIXME",
+			"color": "#000000",
+			"backgroundColor": "#FFCC00"
+		},
+		{
+			"tag": "HACK",
+			"color": "#000000",
+			"backgroundColor": "#FF8C00"
+		},
+		{
+			"tag": "BUG",
+			"color": "#000000",
+			"backgroundColor": "#FF2D00"
+		},
+		{
+			"tag": "UNDO",
+			"color": "#000000",
+			"backgroundColor": "#3498DB"
+		}
 	]
 }

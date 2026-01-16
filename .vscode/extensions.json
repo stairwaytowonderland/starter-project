@@ -37,6 +37,8 @@
 		// "streetsidesoftware.code-spell-checker",
 		"tamasfe.even-better-toml",
 		"tomasdahlqvist.markdown-admonitions",
-		"yahyabatulu.vscode-markdown-alert"
+		"yahyabatulu.vscode-markdown-alert",
+		"cloudbyte.better-byte",
+		"mkhl.shfmt"
 	]
 }

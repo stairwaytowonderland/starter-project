@@ -115,12 +115,6 @@ RUN touch "$PASSGEN" \
 LC_ALL=C tr -dc "${2:-$DEFAULT_PASS_CHARSET}" < /dev/urandom | head -c${1:-$DEFAULT_PASS_LENGTH}
 EOF
 
-RUN if [ "$TIMEZONE" != "UTC" ] ; then \
-  ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime \
-      && dpkg-reconfigure -f noninteractive tzdata \
-      && $LOGGER "Timezone set to '$TIMEZONE'"; \
-  fi
-
 RUN touch "$FIXPATH" \
   && chmod +x $FIXPATH \
   && cat > "$FIXPATH" <<EOF
@@ -158,8 +152,8 @@ PATH=
 while [ -n "\$__path" ]; do
   x=\${__path%%:*}          # Extract the first entry
   case \$PATH: in
-      *:"\$x":*) ;;         # If already in PATH, do nothing
-      *) PATH=\$PATH:\$x;;  # Otherwise, append it
+    *:"\$x":*) ;;           # If already in PATH, do nothing
+    *) PATH=\$PATH:\$x;;    # Otherwise, append it
   esac
   __path=\${__path#*:}      # Remove the first entry from the list
 done
@@ -167,6 +161,17 @@ PATH=\${PATH#:}             # Remove the leading colon
 
 printf "%s" "\$PATH"
 EOF
+
+RUN cat >> /root/.bashrc <<EOF
+if [ -f /etc/bash_completion ] && ! shopt -oq posix; then
+   . /etc/bash_completion
+fi
+EOF
+
+RUN "$TIMEZONE" = "UTC" || \
+  ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime \
+    && dpkg-reconfigure -f noninteractive tzdata \
+    && $LOGGER "Timezone set to '$TIMEZONE'"
 
 
 FROM base AS devuser
@@ -212,8 +217,7 @@ RUN if [ "$IMAGE_NAME" = "ubuntu" ]; then \
     fi; \
   fi
 
-RUN test "${PYTHON_VERSION}" = "system" || \
-  cat >> /etc/skel/.bashrc <<EOF
+RUN cat <<EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
 
 # Ensure Homebrew is properly configured
 # The brew shellenv line exports HOMEBREW_PREFIX, HOMEBREW_CELLAR,
@@ -225,26 +229,36 @@ then
 fi
 EOF
 
-RUN cat >> /etc/skel/.bashrc <<EOF
+RUN test "$PYTHON_VERSION" = "devcontainer" \
+  || test "$PYTHON_VERSION" = "$USERNAME" \
+  || test "$PYTHON_VERSION" = "system" || \
+  cat <<EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
 
-if type /usr/local/python/current/bin/python3 &>/dev/null
+if type brew &>/dev/null
 then
-  PATH="\$(PATH="/usr/local/python/current/bin:\${PATH}" $FIXPATH)"
-elif test "${PYTHON_VERSION}" != "system"
-then
-  if type brew &>/dev/null
+  # PYTHON_BREW_PATH="\$(brew --prefix python3)/bin"
+  PYTHON_BREW_PATH="\$(brew --prefix)/opt/python3/bin"
+  if test -d "\$PYTHON_BREW_PATH"
   then
-    # PYTHON_BREW_PATH="\$(brew --prefix python3)/bin"
-    PYTHON_BREW_PATH="\$(brew --prefix)/opt/python3/bin"
-    if test -d "\${PYTHON_BREW_PATH}"
-    then
-      PATH="\$(PATH="\${PYTHON_BREW_PATH}:\${PATH}" $FIXPATH)"
-    fi
+    PATH="\${PYTHON_BREW_PATH}:\${PATH}"
   fi
 fi
 EOF
 
-RUN cat >> /etc/skel/.profile <<EOF
+RUN test "$PYTHON_VERSION" != "devcontainer" \
+  && test "$PYTHON_VERSION" != "$USERNAME" \
+  && test "$PYTHON_VERSION" = "system" || \
+  cat <<EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
+
+if type /usr/local/python/current/bin/python3 &>/dev/null
+then
+  PATH="/usr/local/python/current/bin:\${PATH}"
+fi
+EOF
+
+RUN echo | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null && \
+  echo PATH="\$($FIXPATH)" | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null && \
+  cat <<EOF | tee -a /etc/skel/.profile /root/.profile > /dev/null
 
 # https://docs.brew.sh/Shell-Completion
 if type brew &>/dev/null

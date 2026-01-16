@@ -4,9 +4,9 @@
 # ---------------------------------------
 set -euo pipefail
 
-if [ -z "$0" ] ; then
-  echo "Cannot determine script path"
-  exit 1
+if [ -z "$0" ]; then
+    echo "Cannot determine script path"
+    exit 1
 fi
 
 script_name="$0"

@@ -7,9 +7,9 @@
 # ---------------------------------------
 set -euo pipefail
 
-if [ -z "$0" ] ; then
-  echo "Cannot determine script path"
-  exit 1
+if [ -z "$0" ]; then
+    echo "Cannot determine script path"
+    exit 1
 fi
 
 script_name="$0"
@@ -21,33 +21,33 @@ script_dir="$(cd "$(dirname "$script_name")" && pwd)"
 # Specify last argument as context if it's a directory
 last_arg="${@: -1}"
 
-if [ $# -lt 1 ] ; then
-  echo "Usage: $0 <image-name[:build_target]> [remote-user] [context]"
-  exit 1
+if [ $# -lt 1 ]; then
+    echo "Usage: $0 <image-name[:build_target]> [remote-user] [context]"
+    exit 1
 fi
 # Determine IMAGE_NAME and DOCKER_TARGET
 IMAGE_NAME=${IMAGE_NAME:-$1}
 shift
-if awk -F':' '{print $2}' <<< "$IMAGE_NAME" >/dev/null 2>&1 ; then
-  DOCKER_TARGET="$(awk -F':' '{print $2}' <<< "$IMAGE_NAME")"
-  IMAGE_NAME="$(awk -F':' '{print $1}' <<< "$IMAGE_NAME")"
+if awk -F':' '{print $2}' <<<"$IMAGE_NAME" >/dev/null 2>&1; then
+    DOCKER_TARGET="$(awk -F':' '{print $2}' <<<"$IMAGE_NAME")"
+    IMAGE_NAME="$(awk -F':' '{print $1}' <<<"$IMAGE_NAME")"
 fi
 DOCKER_TARGET=${DOCKER_TARGET:-"devcontainer"}
-if [ -d "$last_arg" ] ; then
-  DOCKER_CONTEXT="$last_arg"
+if [ -d "$last_arg" ]; then
+    DOCKER_CONTEXT="$last_arg"
 else
-  DOCKER_CONTEXT="${DOCKER_CONTEXT:-"$script_dir/../../.."}"
+    DOCKER_CONTEXT="${DOCKER_CONTEXT:-"$script_dir/../../.."}"
 fi
-if [ ! -d "$DOCKER_CONTEXT" ] ; then
-  echo "Docker context directory not found at expected path: $DOCKER_CONTEXT"
-  exit 1
+if [ ! -d "$DOCKER_CONTEXT" ]; then
+    echo "Docker context directory not found at expected path: $DOCKER_CONTEXT"
+    exit 1
 fi
 # Determine REMOTE_USER
-if [ $# -gt 0 ] ; then
-  if [ "$1" != "$DOCKER_CONTEXT" ] ; then
-    REMOTE_USER="${1-}"
-    shift
-  fi
+if [ $# -gt 0 ]; then
+    if [ "$1" != "$DOCKER_CONTEXT" ]; then
+        REMOTE_USER="${1-}"
+        shift
+    fi
 fi
 REMOTE_USER="${REMOTE_USER:-devcontainer}"
 
@@ -58,18 +58,42 @@ echo "Running Docker container for ${REMOTE_USER}..."
 com=(docker run -it --rm)
 # TZ not needed, but included for reference and clarity
 com+=("-e" "TZ=${TIMEZONE:-America/Chicago}")
-if [ "${DEV:-false}" = "true" ] ; then
-  com+=("-e" "DEV=true")
-  com+=("-e" "RESET_ROOT_PASS=${RESET_ROOT_PASS:-false}")
-  com+=("-e" "DEBUG=${DEBUG:-false}")
+if [ "${DEV:-false}" = "true" ]; then
+    com+=("-e" "DEV=true")
+    com+=("-e" "RESET_ROOT_PASS=${RESET_ROOT_PASS:-false}")
+    com+=("-e" "DEBUG=${DEBUG:-false}")
 fi
+while [ $# -gt 0 ]; do
+    case "$1" in
+    -e)
+        com+=("-e" "$2")
+        shift 2
+        ;;
+    --env=*)
+        com+=("$1")
+        shift
+        ;;
+    *)
+        break
+        ;;
+    esac
+done
 com+=("-v" "${DOCKER_CONTEXT}:${workspace_dir}")
-com+=("-p" "0.0.0.0:8080:8080")
+if [ -d "$HOME/.ssh" ]; then
+    com+=("-v" "$HOME/.ssh:/home/${REMOTE_USER}/.ssh:ro")
+fi
+if [ -r "$HOME/.gitconfig" ]; then
+    com+=("-v" "$HOME/.gitconfig:/etc/gitconfig:ro")
+fi
+if [ "$DOCKER_TARGET" = "devcontainer" ]; then
+    com+=("-p" "0.0.0.0:8080:8080")
+fi
 com+=("$docker_tag")
-for arg in "$@" ; do
-  if [ "$arg" != "$DOCKER_CONTEXT" ] ; then
-    com+=("$arg")
-  fi
+
+for arg in "$@"; do
+    if [ "$arg" != "$DOCKER_CONTEXT" ]; then
+        com+=("$arg")
+    fi
 done
 
 set -- "${com[@]}"

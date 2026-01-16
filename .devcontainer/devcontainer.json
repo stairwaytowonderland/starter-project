@@ -23,7 +23,10 @@
 	"workspaceFolder": "/home/vscode/workspace",
 	"workspaceMount": "source=${localWorkspaceFolder},target=/home/vscode/workspace,type=bind,consistency=cached",
 	// Mount SSH keys
-	"mounts": ["source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached"],
+	"mounts": [
+		"source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached",
+		"source=${localEnv:HOME}/.gitconfig,target=/etc/gitconfig,type=bind,consistency=cached"
+	],
 
 	// Features to install
 	// https://containers.dev/features
@@ -42,7 +45,7 @@
 		// The "os-provided" version will likely be an older version of Python
 		// (e.g. Python 3.11 on Debian 12 or Python 3.12 on Debian 13)
 		"ghcr.io/devcontainers/features/python:1": {
-			"version": "latest",
+			"version": "os-provided",
 			"installTools": "true"
 		},
 		"ghcr.io/devcontainers/features/terraform:1": {
