@@ -23,6 +23,11 @@ script_dir="$(cd "$(dirname "$script_name")" && pwd)"
 # Specify last argument as context if it's a directory
 last_arg="${*: -1}"
 
+. "$script_dir/load-env.sh" "$script_dir/.."
+
+BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-ubuntu}"
+BASE_IMAGE_VARIANT="${BASE_IMAGE_VARIANT:-latest}"
+
 if [ $# -lt 1 ]; then
     echo "Usage: $0 <image-name[:build_target]> [remote-user] [context]"
     exit 1
@@ -53,8 +58,21 @@ if [ $# -gt 0 ]; then
 fi
 REMOTE_USER="${REMOTE_USER:-devcontainer}"
 
+if docker image inspect "${IMAGE_NAME}:${DOCKER_TARGET}" > /dev/null 2>&1; then
+    echo "Found Docker image '${IMAGE_NAME}:${DOCKER_TARGET}'"
+    docker_tag="${IMAGE_NAME}:${DOCKER_TARGET}"
+elif docker image inspect "${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_VARIANT}" > /dev/null 2>&1; then
+    echo "Found Docker image '${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_VARIANT}'"
+    docker_tag="${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_VARIANT}"
+elif docker image inspect "${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_NAME}-${BASE_IMAGE_VARIANT}" > /dev/null 2>&1; then
+    echo "Found Docker image '${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_NAME}-${BASE_IMAGE_VARIANT}'"
+    docker_tag="${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_NAME}-${BASE_IMAGE_VARIANT}"
+else
+    echo "Docker image '${IMAGE_NAME}:${DOCKER_TARGET}' not found locally. Please build the image first."
+    exit 1
+fi
+
 workspace_dir="/home/${REMOTE_USER}/workspace"
-docker_tag="${IMAGE_NAME}:${DOCKER_TARGET}"
 
 echo "Running Docker container for ${REMOTE_USER}..."
 com=(docker run -it --rm)

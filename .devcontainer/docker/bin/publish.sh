@@ -31,6 +31,7 @@ GITHUB_PAT="${GITHUB_PAT:-$GH_TOKEN}"
 CR_PAT="${CR_PAT:-$GITHUB_PAT}"
 REPO_NAMESPACE="${REPO_NAMESPACE-}"
 REPO_NAME="${REPO_NAME-}"
+LATEST="${LATEST:-false}"
 
 # Determine IMAGE_NAME
 IMAGE_NAME=${first_arg:-$REPO_NAME}
@@ -103,7 +104,7 @@ com+=("$registry_url")
 set -- "${com[@]}"
 . "$script_dir/exec-com.sh" "$@"
 
-if [ "${LATEST:-false}" = "true" ]; then
+if [ "$LATEST" = "true" ]; then
     latest_tag="${IMAGE_NAME}:latest"
     registry_url_latest="ghcr.io/${GITHUB_USER}/${latest_tag}"
 
