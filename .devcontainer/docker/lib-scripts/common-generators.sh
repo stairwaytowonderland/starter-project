@@ -39,18 +39,78 @@ touch "$PASSGEN" \
     && cat > "$PASSGEN" << EOF
 #!/bin/sh
 
-# Generate a random $DEFAULT_PASS_LENGTH-character (unless specified) alphanumeric password
+# Generate a random $DEFAULT_PASS_LENGTH-character alphanumeric password (unless otherwise specified)
 
-# Usage: $PASSGEN [length] [charset]
+# Usage: $PASSGEN [simple|requirements] [length] [charset|min_char_per_fam]
 #
 # Arguments:
+#   mode: 'simple' for simple password generation (default)
+#         'requirements' for password generation with character family requirements
 #   length: Length of password to generate (default: $DEFAULT_PASS_LENGTH)
-#   charset: Characters to use for password generation (default: $DEFAULT_PASS_CHARSET)
+#   charset: Characters to use for password generation (simple mode only; default: $DEFAULT_PASS_CHARSET)
+#   min_char_per_fam: Minimum characters per family (requirements mode only; default: 2)
 #
 # Output:
 #   Randomly generated password
 
-LC_ALL=C tr -dc "${2:-$DEFAULT_PASS_CHARSET}" < /dev/urandom | head -c${1:-$DEFAULT_PASS_LENGTH}
+simple_pass() {
+    # Does not guarantee character family requirements
+
+    full_charset='[:graph:]'
+    alpha_charset='[:alnum:]'
+    custom_charset='0-9a-zA-Z!%^&.@$*_:.,?-'
+    default_charset="${DEFAULT_PASS_CHARSET:-\$full_charset}"
+    LC_ALL=C tr -dc "\${2:-\$default_charset}" < /dev/urandom | head -c"\${1:-$DEFAULT_PASS_LENGTH}"
+}
+
+requirements_pass() {
+    # Guarantees at least 2 characters from each character family: digits, lowercase, uppercase, special
+
+    max_string_len=\${1:-$DEFAULT_PASS_LENGTH}
+    min_char_per_fam=\${2:-2}
+
+    tr_num='0-9'
+    tr_lower='a-z'
+    tr_upper='A-Z'
+    tr_special='!%^&.@\$*_:.,?-'
+    tr_special_addtl='~#|<>[]{}()/+=;'
+
+    set -- "\$tr_num" "\$tr_lower" "\$tr_upper" "\$tr_special" "\$tr_special_addtl"
+    count="\$#"
+    shift \$count
+
+    remaining_chars="\$(( max_string_len - \$count * min_char_per_fam ))"
+    if [ \$remaining_chars -lt 0 ]; then remaining_chars=0 ; fi
+
+    ( \\
+          ( LC_CTYPE=C tr -dc "\${tr_num}"     </dev/urandom | head -c "\${min_char_per_fam}" ) \\
+        ; ( LC_CTYPE=C tr -dc "\${tr_lower}"   </dev/urandom | head -c "\${min_char_per_fam}" ) \\
+        ; ( LC_CTYPE=C tr -dc "\${tr_upper}"   </dev/urandom | head -c "\${min_char_per_fam}" ) \\
+        ; ( LC_CTYPE=C tr -dc "\${tr_special}" </dev/urandom | head -c "\${min_char_per_fam}" ) \\
+        ; ( LC_CTYPE=C tr -dc "\${tr_special_addtl}" </dev/urandom | head -c "\${min_char_per_fam}" ) \\
+        ; ( LC_CTYPE=C tr -dc "\${tr_num}\${tr_lower}\${tr_upper}\${tr_special}\${tr_special_addtl}" </dev/urandom | head -c "\${remaining_chars}" ) \\
+    ) | fold -w1 | shuf | tr -d '\n'
+}
+
+if [ "\$#" -eq 0 ] ; then
+    simple_pass
+else
+    case "\$1" in
+        simple)
+            shift
+            simple_pass "\$@"
+            ;;
+        requirements)
+            shift
+            requirements_pass "\$@"
+            ;;
+        *)
+            echo "Invalid mode: \$1" >&2
+            echo "Usage: $PASSGEN [simple|requirements] [length] [charset|min_char_per_fam]" >&2
+            exit 1
+            ;;
+    esac
+fi
 EOF
 
 touch "$FIXPATH" \

@@ -16,7 +16,7 @@ if [ "${DEV:-$DEV}" = "true" ]; then
 else
     $LOGGER "Set DEV=true to disable authentication for code-server"
     auth="password"
-    export PASSWORD="${PASSWORD:-$($PASSGEN)}"
+    export PASSWORD="${PASSWORD:-$($PASSGEN simple "$DEFAULT_PASS_LENGTH" "$DEFAULT_PASS_CHARSET")}"
 fi
 
 config_dir="$(dirname "$CODE_SERVER_CONFIG")"

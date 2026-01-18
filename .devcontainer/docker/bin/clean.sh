@@ -29,3 +29,5 @@ com+=("$(docker image ls -f dangling=true -q)")
 
 set -- "${com[@]}"
 . "$script_dir/exec-com.sh" "$@"
+
+echo "Done! Docker cleanup complete."

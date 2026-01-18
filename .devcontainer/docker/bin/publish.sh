@@ -20,7 +20,10 @@ script_dir="$(cd "$(dirname "$script_name")" && pwd)"
 first_arg="${1-}"
 [ -z "$first_arg" ] || shift
 
-. "$script_dir/load-env.sh" "$script_dir/../../.."
+. "$script_dir/load-env.sh" "$script_dir/.."
+
+BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-ubuntu}"
+BASE_IMAGE_VARIANT="${BASE_IMAGE_VARIANT:-latest}"
 
 GITHUB_TOKEN="${GITHUB_TOKEN-}"
 GH_TOKEN="${GH_TOKEN:-$GITHUB_TOKEN}"
@@ -30,7 +33,7 @@ REPO_NAMESPACE="${REPO_NAMESPACE-}"
 REPO_NAME="${REPO_NAME-}"
 
 # Determine IMAGE_NAME
-IMAGE_NAME=${IMAGE_NAME:-$first_arg}
+IMAGE_NAME=${first_arg:-$REPO_NAME}
 if [ -z "$IMAGE_NAME" ]; then
     echo "Usage: $0 <image-name[:build_target]> [github-username] [image-version]"
     exit 1
@@ -56,21 +59,39 @@ if [ $# -gt 0 ]; then
 fi
 IMAGE_VERSION="${IMAGE_VERSION:-latest}"
 
-build_tag="${IMAGE_NAME}:${DOCKER_TARGET}"
-docker_tag="${IMAGE_NAME}-${DOCKER_TARGET}:${IMAGE_VERSION}"
+if [ "$BASE_IMAGE_VARIANT" = "latest" ]; then
+    build_tag="${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_NAME}"
+    docker_tag="${IMAGE_NAME}:${BASE_IMAGE_NAME}-${BASE_IMAGE_VARIANT}"
+else
+    build_tag="${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_VARIANT}"
+    docker_tag="${IMAGE_NAME}:${IMAGE_VERSION}-${BASE_IMAGE_VARIANT}"
+fi
+
 registry_url="ghcr.io/${GITHUB_USER}/${docker_tag}"
+
+tag_image() {
+    local source_image="$1"
+    local target_image="$2"
+
+    echo "Tagging Docker image '${source_image}' as '${target_image}'..."
+    (
+        set -x
+        docker tag "$source_image" "$target_image"
+    )
+}
+
+remove_danglers() {
+    echo "Removing dangling Docker images..."
+    (
+        set -x
+        docker rmi "$(docker images --filter label="org.opencontainers.image.title=${1}" --filter dangling=true -q)" 2> /dev/null || true
+    )
+}
 
 # Tag the image for GitHub Container Registry
 echo "Tagging Docker image for GitHub Container Registry..."
 # (set -x; docker tag "$build_tag" "$docker_tag")
-(
-    set -x
-    docker tag "$build_tag" "$registry_url" || true
-)
-(
-    set -x
-    docker rmi "$(docker images --filter label="org.opencontainers.image.title=${build_tag}" --filter dangling=true -q)" 2> /dev/null || true
-)
+tag_image "$build_tag" "$registry_url"
 
 echo "Logging in to GitHub Container Registry..."
 echo "$CR_PAT" | docker login ghcr.io -u "$GITHUB_USER" --password-stdin
@@ -81,3 +102,20 @@ com+=("$registry_url")
 
 set -- "${com[@]}"
 . "$script_dir/exec-com.sh" "$@"
+
+if [ "${LATEST:-false}" = "true" ]; then
+    latest_tag="${IMAGE_NAME}:latest"
+    registry_url_latest="ghcr.io/${GITHUB_USER}/${latest_tag}"
+
+    echo "Tagging Docker image with 'latest' tag for GitHub Container Registry..."
+    tag_image "$build_tag" "$registry_url_latest"
+
+    com=(docker push)
+    com+=("$registry_url_latest")
+
+    set -- "${com[@]}"
+    . "$script_dir/exec-com.sh" "$@"
+fi
+
+remove_danglers "$build_tag"
+echo "Done! Docker image publishing complete."

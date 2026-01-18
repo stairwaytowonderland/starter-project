@@ -1,16 +1,20 @@
 {
 	"name": "VSCode Dev Container",
 	"image": "ghcr.io/stairwaytowonderland/starter-project-devcontainer:latest",
+	// "image": "ghcr.io/stairwaytowonderland/starter-project-devcontainer:latest-bookworm-slim",
 	// "build": {
 	// 	"dockerfile": "./docker/Dockerfile",
 	// 	"target": "devcontainer",
 	// 	"context": "..",
 	// 	"args": {
-	// 		// "VARIANT": "latest",
+	// 		"IMAGE_NAME": "debian",
+	// 		"VARIANT": "bookworm-slim",
 	// 		"USERNAME": "vscode",
 	// 		"USER_UID": "1000",
 	// 		"USER_GID": "1000",
 	// 		"TIMEZONE": "America/Chicago",
+	// 		* "devcontainer", "system", "latest", or specific version like "3.12"
+	// 		* Use "devcontainer" if using the Python devcontainer feature
 	// 		"PYTHON_VERSION": "devcontainer"
 	// 	}
 	// },

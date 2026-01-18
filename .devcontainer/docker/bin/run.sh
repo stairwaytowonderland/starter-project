@@ -104,3 +104,5 @@ done
 
 set -- "${com[@]}"
 . "$script_dir/exec-com.sh" "$@"
+
+echo "Done! Docker container exited."

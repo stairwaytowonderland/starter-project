@@ -9,6 +9,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Build arguments need to be re-declared if used in FROM instructions
 # (https://docs.docker.com/build/building/variables/#scoping)
+ARG BASE_IMAGE
 ARG IMAGE_NAME
 ARG VARIANT
 # Create a non-root user
@@ -27,7 +28,12 @@ ARG DEV=false
 ARG NO_BREW_UPDATE=$DEV
 # Other
 ARG DEFAULT_PASS_LENGTH=32
+# Default character set for password generation
+# Use '[:graph:]' for all printable characters (except space)
+# Use '[:alnum:]' for alphanumeric characters plus digits
+# Use 'a-zA-Z0-9' for a custom character set (specify any characters, e.g. 'a-zA-Z0-9!@#$%^&*()')
 ARG DEFAULT_PASS_CHARSET='a-zA-Z0-9'
+# Default user workspace directory
 ARG DEFAULT_WORKSPACE=/home/$USERNAME/workspace
 
 ENV TZ=$TIMEZONE
@@ -39,23 +45,10 @@ COPY .devcontainer/docker/lib-scripts/*.sh /tmp/lib-scripts/
 
 USER root
 
-RUN chmod +x /tmp/lib-scripts/*.sh \
-  && sed -i "s|\$LOGGER|$LOGGER|g" /tmp/lib-scripts/*.sh \
-  && sed -i "s|\$PASSGEN|$PASSGEN|g" /tmp/lib-scripts/common-helpers.sh \
-  && sed -i "s|\$FIXPATH|$FIXPATH|g" /tmp/lib-scripts/common-helpers.sh \
-  && sed -i "s|\$DEFAULT_PASS_LENGTH|$DEFAULT_PASS_LENGTH|g" /tmp/lib-scripts/common-helpers.sh \
-  && sed -i "s|\$DEFAULT_PASS_CHARSET|$DEFAULT_PASS_CHARSET|g" /tmp/lib-scripts/common-helpers.sh
-
-RUN /tmp/lib-scripts/common-helpers.sh
-
-RUN cat >> /root/.bashrc <<EOF
-if [ -f /etc/bash_completion ] && ! shopt -oq posix; then
-   . /etc/bash_completion
-fi
-EOF
-
 # Update and install essential packages
-RUN \
+RUN chmod +x /tmp/lib-scripts/*.sh \
+  && sed -i "s|\$LOGGER|$LOGGER|g" /tmp/lib-scripts/*-utils.sh \
+  && /tmp/lib-scripts/common-generators.sh && \
   # Check for mandatory build arguments (https://stackoverflow.com/a/44791255)
   : "${REPO_NAME:?Build argument needs to be set and non-empty.}" \
   && \
@@ -64,12 +57,18 @@ RUN \
   && /tmp/lib-scripts/common-utils.sh \
   # Cleanup
   && apt-get clean -y \
-  && rm -rf /var/lib/apt/lists/*
-
-RUN "$TIMEZONE" = "UTC" || \
+  && rm -rf /var/lib/apt/lists/* \
+  # Set timezone
+  && [ "$TIMEZONE" = "UTC" ] || \
   ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime \
     && dpkg-reconfigure -f noninteractive tzdata \
-    && $LOGGER "Timezone set to '$TIMEZONE'"
+    && $LOGGER "Timezone set to '$TIMEZONE'" \
+    # Enable bash completion for root user
+    && cat >> /root/.bashrc <<EOF
+if [ -f /etc/bash_completion ] && ! shopt -oq posix; then
+   . /etc/bash_completion
+fi
+EOF
 
 
 FROM base AS devuser
@@ -102,33 +101,9 @@ RUN if [ "$IMAGE_NAME" = "ubuntu" ]; then \
     else \
       $LOGGER "User 'ubuntu' does not exist for $IMAGE_NAME"; \
     fi; \
-  fi
-
-# Create python helper scripts
-RUN chmod +x /tmp/lib-scripts/python-helpers.sh \
-  && sed -i "s|\$BREW|$BREW|g" /tmp/lib-scripts/python-helpers.sh \
-  && sed -i "s|\$PIPX|$PIPX|g" /tmp/lib-scripts/python-helpers.sh \
-  && /tmp/lib-scripts/python-helpers.sh
-
-# Install sudo and fun packages
-RUN apt-get update \
-  && apt-get -y install --no-install-recommends \
-    # Install sudo here so production image doesn't have it
-    sudo \
-    bash-completion \
-    software-properties-common \
-  # We don't want to use --no-install-recommends here, since the
-  # additional utilities (games) may depend on some recommended packages.
-  && apt-get -y install \
-    # Fun
-    cowsay \
-    fortune \
-  # Git installation
-  && add-apt-repository ppa:git-core/ppa \
-  && apt-get update \
-  && apt-get -y install --no-install-recommends \
-    git \
-    pre-commit \
+  fi \
+  && /tmp/lib-scripts/devuser-generators.sh \
+  && /tmp/lib-scripts/devuser-utils.sh \
   # Cleanup
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/*
@@ -236,27 +211,9 @@ ENV RESET_ROOT_PASS=$DEFAULT_ROOT_PASS
 # Needed to properly reference target version of python3
 # ENV PATH="/home/linuxbrew/.linuxbrew/opt/python3/bin:${PATH}"
 
-RUN apt-get update \
-  && apt-get -y install --no-install-recommends \
-    gnupg \
-    openssh-client \
-    shfmt \
-    # Always install system python3 and pip
-    python-is-python3 \
-    python3-pip \
-  && if [ "$PYTHON_VERSION" = "system" ] ; then \
-    apt-get -y install --no-install-recommends \
-      python3-venv \
-      python3-dev \
-      pipx; \
-  fi
-
-# Install Node.js (LTS version) and npm
-# RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
-#   && apt-get -y install --no-install-recommends nodejs
-
-# Cleanup
-RUN apt-get clean -y \
+RUN /tmp/lib-scripts/devtools-utils.sh \
+  # Cleanup
+  && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/*
 
 # Switch to non-root user
@@ -391,7 +348,7 @@ USER $USERNAME
 # Set the default working directory
 WORKDIR $DEFAULT_WORKSPACE
 
-LABEL org.opencontainers.image.title="$REPO_NAME:devcontainer"
+LABEL org.opencontainers.image.title="$REPO_NAME:devcontainer-$BASE_IMAGE"
 LABEL org.opencontainers.image.source=https://github.com/$REPO_NAMESPACE/$REPO_NAME
 LABEL org.opencontainers.image.description="A simple Debian-based Docker image with essential development tools and Homebrew."
 LABEL org.opencontainers.image.licenses=MIT

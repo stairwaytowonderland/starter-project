@@ -52,6 +52,9 @@ fi
 
 . "$script_dir/load-env.sh" "$script_dir/.."
 
+BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-ubuntu}"
+BASE_IMAGE_VARIANT="${BASE_IMAGE_VARIANT:-latest}"
+
 # Default repository info (must be provided as environment variables or build args)
 REPO_NAME="${REPO_NAME-}"
 REPO_NAMESPACE="${REPO_NAMESPACE-}"
@@ -80,9 +83,13 @@ DOCKER_TARGET=${DOCKER_TARGET:-"devcontainer"}
 # Determine REMOTE_USER (the devcontainer non-root user, e.g., 'vscode' or 'devcontainer')
 REMOTE_USER="${REMOTE_USER:-$second_arg}"
 
-# Determine Dockerfile path and build tag
+if [ "$BASE_IMAGE_VARIANT" = "latest" ]; then
+    build_tag="${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_NAME}-${BASE_IMAGE_VARIANT}"
+else
+    build_tag="${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_VARIANT}"
+fi
+
 dockerfile_path="$DOCKER_CONTEXT/.devcontainer/docker/Dockerfile"
-build_tag="${IMAGE_NAME}:${DOCKER_TARGET}"
 
 if [ ! -f "$dockerfile_path" ]; then
     echo "Dockerfile not found at expected path: $dockerfile_path"
@@ -100,6 +107,9 @@ com+=("--label" "org.opencontainers.image.description=A simple Debian-based Dock
 com+=("--label" "org.opencontainers.image.licenses=MIT")
 com+=("--target" "$DOCKER_TARGET")
 com+=("-t" "$build_tag")
+# The `debian:bookworm-slim` image provides a minimal base for development containers
+com+=("--build-arg" "IMAGE_NAME=${BASE_IMAGE_NAME}")
+com+=("--build-arg" "VARIANT=${BASE_IMAGE_VARIANT}")
 if [ -n "$REMOTE_USER" ]; then
     com+=("--build-arg" "USERNAME=$REMOTE_USER")
 fi
@@ -117,3 +127,5 @@ com+=("$DOCKER_CONTEXT")
 
 set -- "${com[@]}"
 . "$script_dir/exec-com.sh" "$@"
+
+echo "Done! Docker image build complete."
