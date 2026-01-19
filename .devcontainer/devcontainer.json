@@ -1,10 +1,11 @@
 {
 	"name": "VSCode Dev Container",
 	"image": "ghcr.io/stairwaytowonderland/starter-project:latest",
-	// "image": "ghcr.io/stairwaytowonderland/starter-project:latest-bookworm-slim",
+	// "image": "ghcr.io/stairwaytowonderland/starter-project:base-ubuntu-latest",
+	// "image": "ghcr.io/stairwaytowonderland/starter-project:base-bookworm-slim",
 	// "build": {
 	// 	"dockerfile": "./docker/Dockerfile",
-	// 	"target": "devcontainer",
+	// 	"target": "base",
 	// 	"context": "..",
 	// 	"args": {
 	// 		"IMAGE_NAME": "debian",
@@ -14,7 +15,7 @@
 	// 		"USER_GID": "1000",
 	// 		"TIMEZONE": "America/Chicago",
 
-	// 		* "devcontainer", "system", "latest", or specific version like "3.12"
+	// 		* NOTE: "devcontainer", "system", "latest", or specific version like "3.12"
 	// 		* Use "devcontainer" if using the Python devcontainer feature
 	// 		"PYTHON_VERSION": "devcontainer"
 	// 	}
@@ -44,9 +45,9 @@
 		// "ghcr.io/skriptfabrik/devcontainer-features/gitlab-cli:1": {}
 		/*
 			Systems tools feature
-			Use "none" for common-utils username to skip creating a non-root user if user is already created in Dockerfile
+			Use "none" for builder-utils username to skip creating a non-root user if user is already created in Dockerfile
 		*/
-		// "ghcr.io/devcontainers/features/common-utils:2": {
+		// "ghcr.io/devcontainers/features/builder-utils:2": {
 		// 	"username": "none"
 		// },
 		/*
@@ -84,7 +85,7 @@
 		/*
 			Container features
 		*/
-		// *NOTE*: docker-in-docker not yet supported on debian:trixie (use 'debian:bookworm' or 'ubuntu-24.04')
+		// * NOTE: docker-in-docker not yet supported on debian:trixie (use 'debian:bookworm' or 'ubuntu-24.04')
 		// "ghcr.io/devcontainers/features/docker-in-docker": {},
 		/*
 			Cloud CLI features

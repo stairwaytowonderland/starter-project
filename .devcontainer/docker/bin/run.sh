@@ -39,7 +39,7 @@ if awk -F':' '{print $2}' <<< "$IMAGE_NAME" > /dev/null 2>&1; then
     DOCKER_TARGET="$(awk -F':' '{print $2}' <<< "$IMAGE_NAME")"
     IMAGE_NAME="$(awk -F':' '{print $1}' <<< "$IMAGE_NAME")"
 fi
-DOCKER_TARGET=${DOCKER_TARGET:-"devcontainer"}
+DOCKER_TARGET=${DOCKER_TARGET:-"base"}
 if [ -d "$last_arg" ]; then
     DOCKER_CONTEXT="$last_arg"
 else
@@ -57,16 +57,25 @@ if [ $# -gt 0 ]; then
     fi
 fi
 REMOTE_USER="${REMOTE_USER:-devcontainer}"
+IMAGE_VERSION="${IMAGE_VERSION:-latest}"
 
-if docker image inspect "${IMAGE_NAME}:${DOCKER_TARGET}" > /dev/null 2>&1; then
-    echo "Found Docker image '${IMAGE_NAME}:${DOCKER_TARGET}'"
-    docker_tag="${IMAGE_NAME}:${DOCKER_TARGET}"
-elif docker image inspect "${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_VARIANT}" > /dev/null 2>&1; then
-    echo "Found Docker image '${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_VARIANT}'"
-    docker_tag="${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_VARIANT}"
-elif docker image inspect "${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_NAME}-${BASE_IMAGE_VARIANT}" > /dev/null 2>&1; then
-    echo "Found Docker image '${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_NAME}-${BASE_IMAGE_VARIANT}'"
-    docker_tag="${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_NAME}-${BASE_IMAGE_VARIANT}"
+tag_suffix="${BASE_IMAGE_VARIANT}"
+# Append image version if not 'latest'
+[ "$IMAGE_VERSION" = "latest" ] || tag_suffix="${tag_suffix}-${IMAGE_VERSION}"
+
+tag_prefix="${IMAGE_NAME}:${DOCKER_TARGET}"
+# Append base image name if variant is 'latest'
+[ "$BASE_IMAGE_VARIANT" != "latest" ] || tag_prefix="${tag_prefix}-${BASE_IMAGE_NAME}"
+
+build_tag="${tag_prefix}-${BASE_IMAGE_VARIANT}"
+publish_tag="${tag_prefix}-${tag_suffix}"
+
+if docker image inspect "${build_tag}" > /dev/null 2>&1; then
+    echo "Found Docker image '${build_tag}'"
+    docker_tag="${build_tag}"
+elif docker image inspect "${publish_tag}" > /dev/null 2>&1; then
+    echo "Found Docker image '${publish_tag}'"
+    docker_tag="${publish_tag}"
 else
     echo "Docker image '${IMAGE_NAME}:${DOCKER_TARGET}' not found locally. Please build the image first."
     exit 1

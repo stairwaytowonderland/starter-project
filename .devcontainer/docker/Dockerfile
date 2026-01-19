@@ -2,7 +2,7 @@
 ARG IMAGE_NAME=ubuntu
 ARG VARIANT=${VARIANT:-latest}
 ARG BASE_IMAGE=${IMAGE_NAME}:${VARIANT}
-FROM ${BASE_IMAGE} AS base
+FROM ${BASE_IMAGE} AS builder
 
 # Set environment variables to non-interactive (this prevents some prompts)
 ENV DEBIAN_FRONTEND=noninteractive
@@ -31,7 +31,7 @@ ARG DEFAULT_PASS_LENGTH=32
 # Default character set for password generation
 # Use '[:graph:]' for all printable characters (except space)
 # Use '[:alnum:]' for alphanumeric characters plus digits
-# Use 'a-zA-Z0-9' for a custom character set (specify any characters, e.g. 'a-zA-Z0-9!@#$%^&*()')
+# Use the 'a-zA-Z0-9' form for a custom character set (or specify any characters, e.g. 'a-zA-Z0-9!@#$%^&*()')
 ARG DEFAULT_PASS_CHARSET='a-zA-Z0-9'
 # Default user workspace directory
 ARG DEFAULT_WORKSPACE=/home/$USERNAME/workspace
@@ -54,7 +54,7 @@ RUN chmod +x /tmp/lib-scripts/*.sh \
   && \
   : "${REPO_NAMESPACE:?Build argument needs to be set and non-empty.}" \
   # Update package lists and install packages
-  && /tmp/lib-scripts/common-utils.sh \
+  && /tmp/lib-scripts/builder-utils.sh \
   # Cleanup
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/* \
@@ -76,7 +76,7 @@ fi
 EOF
 
 
-FROM base AS devuser
+FROM builder AS devuser
 
 # Set default Git version to install
 # ('latest' to install latest from source, 'system' to use system Git, or specify version like '2.34.1', '2.35.0', etc.)
@@ -325,9 +325,9 @@ CMD ["/bin/sh", "-c", "start-code-server --config-only && set -x ; exec \
 
 
 # --------------------------------------------------------------
-# THIS IS THE `devcontainer` TARGET
+# THIS IS THE base `devcontainer` TARGET
 # --------------------------------------------------------------
-FROM devuser AS devcontainer
+FROM devuser AS base
 
 # Set default to not reset root password, in case devcontainer inherits from devtools or cloudtools
 # Precautionary measure to avoid interactive prompt when running devcontainer
@@ -338,10 +338,7 @@ COPY .devcontainer/docker/utils/post-start.sh /usr/local/bin/post-start
 
 USER root
 
-RUN apt-get update \
-  && apt-get -y install --no-install-recommends \
-    shfmt \
-    openssh-client \
+RUN /tmp/lib-scripts/base-utils.sh \
   && chmod +x /usr/local/bin/post-start \
   && sed -i "s|\$LOGGER|$LOGGER|g" /usr/local/bin/post-start \
   # Cleanup
@@ -359,14 +356,15 @@ RUN ! $PIPX || \
 # Set the default working directory
 WORKDIR $DEFAULT_WORKSPACE
 
-LABEL org.opencontainers.image.title="$REPO_NAME:devcontainer-$BASE_IMAGE"
+LABEL org.opencontainers.image.ref.name="$REPO_NAME:devcontainer-$BASE_IMAGE"
+LABEL org.opencontainers.image.title="$REPO_NAME - devcontainer - $IMAGE_NAME - $VARIANT"
 LABEL org.opencontainers.image.source=https://github.com/$REPO_NAMESPACE/$REPO_NAME
 LABEL org.opencontainers.image.description="A simple Debian-based Docker image with essential development tools and Homebrew."
 LABEL org.opencontainers.image.licenses=MIT
 # --------------------------------------------------------------
 
 
-FROM base AS production
+FROM builder AS production
 
 RUN apt-get update \
   && apt-get -y install --no-install-recommends tini \

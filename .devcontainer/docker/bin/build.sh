@@ -79,15 +79,15 @@ if awk -F':' '{print $2}' <<< "$IMAGE_NAME" > /dev/null 2>&1; then
     DOCKER_TARGET="$(awk -F':' '{print $2}' <<< "$IMAGE_NAME")"
     IMAGE_NAME="$(awk -F':' '{print $1}' <<< "$IMAGE_NAME")"
 fi
-DOCKER_TARGET=${DOCKER_TARGET:-"devcontainer"}
+DOCKER_TARGET=${DOCKER_TARGET:-"base"}
 # Determine REMOTE_USER (the devcontainer non-root user, e.g., 'vscode' or 'devcontainer')
 REMOTE_USER="${REMOTE_USER:-$second_arg}"
 
-if [ "$BASE_IMAGE_VARIANT" = "latest" ]; then
-    build_tag="${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_NAME}-${BASE_IMAGE_VARIANT}"
-else
-    build_tag="${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_VARIANT}"
-fi
+tag_prefix="${IMAGE_NAME}:${DOCKER_TARGET}"
+# Append base image name if variant is 'latest'
+[ "$BASE_IMAGE_VARIANT" != "latest" ] || tag_prefix="${tag_prefix}-${BASE_IMAGE_NAME}"
+
+build_tag="${tag_prefix}-${BASE_IMAGE_VARIANT}"
 
 dockerfile_path="$DOCKER_CONTEXT/.devcontainer/docker/Dockerfile"
 
@@ -101,7 +101,8 @@ echo "Dockerfile path: $dockerfile_path"
 echo "Docker context: $DOCKER_CONTEXT"
 com=(docker build)
 com+=("-f" "$dockerfile_path")
-com+=("--label" "org.opencontainers.image.title=$build_tag")
+com+=("--label" "org.opencontainers.image.ref.name=$build_tag")
+com+=("--label" "org.opencontainers.image.title=$REPO_NAME - $DOCKER_TARGET - $BASE_IMAGE_NAME - $BASE_IMAGE_VARIANT")
 com+=("--label" "org.opencontainers.image.source=https://github.com/$REPO_NAMESPACE/$REPO_NAME")
 com+=("--label" "org.opencontainers.image.description=A simple Debian-based Docker image with essential development tools and Homebrew.")
 com+=("--label" "org.opencontainers.image.licenses=MIT")

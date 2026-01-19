@@ -2,9 +2,8 @@
 
 set -e
 
-# This script installs common utilities and dependencies
+USE_PPA_IF_AVAILABLE="${USE_PPA_IF_AVAILABLE:-true}"
 
-# Install common packages
 $LOGGER "Installing devuser utilities and dependencies..."
 
 apt-get update
@@ -18,18 +17,8 @@ apt-get -y install --no-install-recommends \
     bash-completion \
     software-properties-common
 
-if [ "$IMAGE_NAME" = "ubuntu" ] && [ "$USE_PPA_IF_AVAILABLE" = "true" ]; then
-    apt-get -y install --no-install-recommends git-core
-    add-apt-repository ppa:git-core/ppa \
-        && apt-get update \
-        && apt-get -y install --no-install-recommends git
-else
-    apt-get -y install --no-install-recommends git
-fi
-
-# Install git (either from PPA or from source)
-# ! Installing from source causes issues for the gh CLI dev container feature
-# /tmp/lib-scripts/git-install.sh
+# * Install GIT
+/tmp/lib-scripts/git-install.sh
 
 # * We don't want to use --no-install-recommends here
 # since the additional utilities (games) may depend on some recommended packages.

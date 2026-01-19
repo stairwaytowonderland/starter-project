@@ -2,9 +2,6 @@
 
 set -e
 
-# This script installs common utilities and dependencies
-
-# Install common packages
 $LOGGER "Installing devtools utilities and dependencies..."
 
 apt-get update

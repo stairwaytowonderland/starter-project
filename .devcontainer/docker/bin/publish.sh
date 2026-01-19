@@ -43,7 +43,7 @@ if awk -F':' '{print $2}' <<< "$IMAGE_NAME" > /dev/null 2>&1; then
     DOCKER_TARGET="$(awk -F':' '{print $2}' <<< "$IMAGE_NAME")"
     IMAGE_NAME="$(awk -F':' '{print $1}' <<< "$IMAGE_NAME")"
 fi
-DOCKER_TARGET=${DOCKER_TARGET:-"devcontainer"}
+DOCKER_TARGET=${DOCKER_TARGET:-"base"}
 # Determine GITHUB_USER
 if [ $# -gt 0 ]; then
     GITHUB_USER="${1:-$REPO_NAMESPACE}"
@@ -60,13 +60,16 @@ if [ $# -gt 0 ]; then
 fi
 IMAGE_VERSION="${IMAGE_VERSION:-latest}"
 
-if [ "$BASE_IMAGE_VARIANT" = "latest" ]; then
-    build_tag="${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_NAME}-${BASE_IMAGE_VARIANT}"
-    docker_tag="${IMAGE_NAME}:${BASE_IMAGE_NAME}-${BASE_IMAGE_VARIANT}"
-else
-    build_tag="${IMAGE_NAME}:${DOCKER_TARGET}-${BASE_IMAGE_VARIANT}"
-    docker_tag="${IMAGE_NAME}:${IMAGE_VERSION}-${BASE_IMAGE_VARIANT}"
-fi
+tag_suffix="${BASE_IMAGE_VARIANT}"
+# Append image version if not 'latest'
+[ "$IMAGE_VERSION" = "latest" ] || tag_suffix="${tag_suffix}-${IMAGE_VERSION}"
+
+tag_prefix="${IMAGE_NAME}:${DOCKER_TARGET}"
+# Append base image name if variant is 'latest'
+[ "$BASE_IMAGE_VARIANT" != "latest" ] || tag_prefix="${tag_prefix}-${BASE_IMAGE_NAME}"
+
+build_tag="${tag_prefix}-${BASE_IMAGE_VARIANT}"
+docker_tag="${tag_prefix}-${tag_suffix}"
 
 registry_url="ghcr.io/${GITHUB_USER}/${docker_tag}"
 
@@ -85,7 +88,7 @@ remove_danglers() {
     echo "Removing dangling Docker images..."
     (
         set -x
-        docker rmi "$(docker images --filter label="org.opencontainers.image.title=${1}" --filter dangling=true -q)" 2> /dev/null || true
+        docker rmi "$(docker images --filter label="org.opencontainers.image.ref.name=${1}" --filter dangling=true -q)" 2> /dev/null || true
     )
 }
 

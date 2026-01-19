@@ -48,6 +48,9 @@ touch "$PASSGEN" \
 #         'requirements' for password generation with character family requirements
 #   length: Length of password to generate (default: $DEFAULT_PASS_LENGTH)
 #   charset: Characters to use for password generation (simple mode only; default: $DEFAULT_PASS_CHARSET)
+#           Use '[:graph:]' for all printable characters (except space)
+#           Use '[:alnum:]' for alphanumeric characters plus digits
+#           Use a custom set of characters (e.g. '0-9a-zA-Z!@#$%^&*()')
 #   min_char_per_fam: Minimum characters per family (requirements mode only; default: 2)
 #
 # Output:
