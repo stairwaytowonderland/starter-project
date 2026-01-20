@@ -6,7 +6,7 @@ $LOGGER "Running post-start script..."
 
 # Display welcome message
 clear
-printf "\033[0;32mVSCode Dev Container: %s\033[0m\n\n" "$(basename "$PWD")"
+printf "\033[0;32mStarter Project Dev Container: %s\033[0m\n\n" "$(basename "$PWD")"
 
 # Display installed tools and versions
 echo "=== Installed Tools ==="

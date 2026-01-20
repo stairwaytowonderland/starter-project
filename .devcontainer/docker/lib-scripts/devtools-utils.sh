@@ -10,12 +10,12 @@ export DEBIAN_FRONTEND=noninteractive
 
 # * Always install system python3 and pip
 apt-get -y install --no-install-recommends \
+    tar \
+    make \
     gnupg \
-    openssh-client \
-    shfmt \
-    python3-pip \
     && if [ "$PYTHON_VERSION" = "system" ]; then
         apt-get -y install --no-install-recommends \
+            python3-pip \
             python3-venv \
             python3-dev \
             pipx

@@ -23,8 +23,8 @@ apt-get -y install --no-install-recommends \
     procps \
     lsb-release \
     tzdata \
+    python3 \
     jq \
-    yq \
-    python-is-python3
+    yq
 
 $LOGGER "Done! Common utilities installation complete."

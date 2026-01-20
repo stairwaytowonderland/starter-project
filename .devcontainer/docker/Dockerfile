@@ -7,6 +7,9 @@ FROM ${BASE_IMAGE} AS builder
 # Set environment variables to non-interactive (this prevents some prompts)
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Development mode flag
+ARG DEV=false
+
 # Build arguments need to be re-declared if used in FROM instructions
 # (https://docs.docker.com/build/building/variables/#scoping)
 ARG BASE_IMAGE
@@ -24,7 +27,6 @@ ARG TIMEZONE=UTC
 ARG REPO_NAME=devcontainer
 ARG REPO_NAMESPACE=devcontainer
 # Package management control
-ARG DEV=false
 ARG NO_BREW_UPDATE=$DEV
 # Other
 ARG DEFAULT_PASS_LENGTH=32
@@ -37,6 +39,9 @@ ARG DEFAULT_PASS_CHARSET='a-zA-Z0-9'
 ARG DEFAULT_WORKSPACE=/home/$USERNAME/workspace
 
 ENV TZ=$TIMEZONE
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
 ENV DEV=$DEV
 ENV DEFAULT_WORKSPACE=$DEFAULT_WORKSPACE
 
@@ -48,7 +53,7 @@ USER root
 # Update and install essential packages
 RUN chmod +x /tmp/lib-scripts/*.sh \
   && sed -i "s|\$LOGGER|$LOGGER|g" /tmp/lib-scripts/*.sh \
-  && /tmp/lib-scripts/common-generators.sh && \
+  && /tmp/lib-scripts/builder-generators.sh && \
   # Check for mandatory build arguments (https://stackoverflow.com/a/44791255)
   : "${REPO_NAME:?Build argument needs to be set and non-empty.}" \
   && \
@@ -58,6 +63,7 @@ RUN chmod +x /tmp/lib-scripts/*.sh \
   # Cleanup
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/* \
+  && rm -rf /tmp/lib-scripts/builder-*.sh \
   # Set timezone
   && [ "$TIMEZONE" = "UTC" ] || \
   ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime \
@@ -112,7 +118,9 @@ RUN if [ "$IMAGE_NAME" = "ubuntu" ]; then \
   # Cleanup
   && apt-get clean -y \
   && apt-get -y autoremove \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* \
+  && rm -f /tmp/lib-scripts/devuser-*.sh \
+  && rm -f /tmp/lib-scripts/git-install.sh
 
 RUN cat <<EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
 
@@ -207,9 +215,50 @@ USER root
 
 # Set default command to login shell
 CMD ["/bin/bash"]
+# --------------------------------------------------------------
 
 
-FROM devuser AS devtools
+# --------------------------------------------------------------
+# THIS IS THE base `devcontainer` TARGET
+# --------------------------------------------------------------
+FROM devuser AS base
+
+# Set default to not reset root password, in case devcontainer inherits from devtools or cloudtools
+# Precautionary measure to avoid interactive prompt when running devcontainer
+ENV RESET_ROOT_PASS=false
+
+# Copy post-start script
+COPY .devcontainer/docker/utils/post-start.sh /usr/local/bin/post-start
+
+USER root
+
+RUN /tmp/lib-scripts/base-utils.sh \
+  && chmod +x /usr/local/bin/post-start \
+  && sed -i "s|\$LOGGER|$LOGGER|g" /usr/local/bin/post-start \
+  # Cleanup
+  && apt-get clean -y \
+  && rm -rf /var/lib/apt/lists/* \
+  && rm -f /tmp/lib-scripts/base-*.sh
+
+# Switch to non-root user
+USER $USERNAME
+# WORKDIR /home/$USERNAME
+
+RUN ! $PIPX || \
+  $($PIPX) install pre-commit
+
+# Set the default working directory
+WORKDIR $DEFAULT_WORKSPACE
+
+LABEL org.opencontainers.image.ref.name="$REPO_NAME:devcontainer-$BASE_IMAGE"
+LABEL org.opencontainers.image.title="$REPO_NAME - devcontainer - $IMAGE_NAME - $VARIANT"
+LABEL org.opencontainers.image.source=https://github.com/$REPO_NAMESPACE/$REPO_NAME
+LABEL org.opencontainers.image.description="A simple Debian-based Docker image with essential development tools and Homebrew."
+LABEL org.opencontainers.image.licenses=MIT
+# --------------------------------------------------------------
+
+
+FROM base AS devtools
 
 # Whether to reset root password at container startup
 # (true/false; default: $DEFAULT_ROOT_PASS build argument)
@@ -217,10 +266,13 @@ ENV RESET_ROOT_PASS=$DEFAULT_ROOT_PASS
 # Needed to properly reference target version of python3
 # ENV PATH="/home/linuxbrew/.linuxbrew/opt/python3/bin:${PATH}"
 
+USER root
+
 RUN /tmp/lib-scripts/devtools-utils.sh \
   # Cleanup
   && apt-get clean -y \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* \
+  && rm -f /tmp/lib-scripts/devtools-*.sh
 
 # Switch to non-root user
 USER $USERNAME
@@ -228,15 +280,17 @@ USER $USERNAME
 # Install Python via Homebrew, pipx, Poetry, uv, and other dev tools via Homebrew.
 # Do nothing if PYTHON_VERSION is 'devcontainer' or matches the USERNAME.
 # USERNAME cannot be 'system' or 'latest'.
-RUN test "$PYTHON_VERSION" = "devcontainer" || test "$PYTHON_VERSION" = "$USERNAME" || \
-    test "$NO_BREW_UPDATE" = "true" || $BREW update \
+RUN test "$NO_BREW_UPDATE" = "true" || $BREW update \
   && if [ "$PYTHON_VERSION" = "latest" ] ; then \
     $BREW install python3; \
-  elif [ "$PYTHON_VERSION" != "system" -a "$(python3 --version | awk -F. '{print $1"."$2}')" != "Python ${PYTHON_VERSION}" ] ; then \
+  elif [ "$PYTHON_VERSION" != "devcontainer" ] && [ "$PYTHON_VERSION" != "system" ] \
+    && [ "$PYTHON_VERSION" != "$USERNAME" ] \
+    && [ "$(python3 --version | awk -F. '{print $1"."$2}')" != "Python ${PYTHON_VERSION}" ] ; then \
     $BREW install python@${PYTHON_VERSION}; \
   fi \
   # Install pipx after Python
   && if [ "$PYTHON_VERSION" != "system" ] ; then \
+    # Homebrew installs the latest version of Python if Python not already installed (by Homebrew)
     $BREW install pipx; \
   fi \
   # Configure pipx, and install Poetry and uv after ensuring pipx is installed
@@ -265,7 +319,7 @@ RUN /tmp/lib-scripts/cloud-cli-tools.sh \
   # Cleanup
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/* \
-  && rm -rf /tmp/lib-scripts/
+  && rm -f /tmp/lib-scripts/cloud*tools.sh
 
 USER $USERNAME
 
@@ -301,8 +355,7 @@ RUN apt-get update \
   && sed -i "s|\$DEV|$DEV|g" /usr/local/bin/start-code-server \
   # Cleanup
   && apt-get clean -y \
-  && rm -rf /var/lib/apt/lists/* \
-  && rm -rf /tmp/lib-scripts/
+  && rm -rf /var/lib/apt/lists/*
 
 USER $USERNAME
 
@@ -322,46 +375,6 @@ CMD ["/bin/sh", "-c", "start-code-server --config-only && set -x ; exec \
       --extensions-dir \
       $(dirname $CODE_SERVER_EXTENSIONS) \
       ${CODE_SERVER_WORKSPACE:-.}"]
-
-
-# --------------------------------------------------------------
-# THIS IS THE base `devcontainer` TARGET
-# --------------------------------------------------------------
-FROM devuser AS base
-
-# Set default to not reset root password, in case devcontainer inherits from devtools or cloudtools
-# Precautionary measure to avoid interactive prompt when running devcontainer
-ENV RESET_ROOT_PASS=false
-
-# Copy post-start script
-COPY .devcontainer/docker/utils/post-start.sh /usr/local/bin/post-start
-
-USER root
-
-RUN /tmp/lib-scripts/base-utils.sh \
-  && chmod +x /usr/local/bin/post-start \
-  && sed -i "s|\$LOGGER|$LOGGER|g" /usr/local/bin/post-start \
-  # Cleanup
-  && apt-get clean -y \
-  && rm -rf /var/lib/apt/lists/* \
-  && rm -rf /tmp/lib-scripts/
-
-# Switch to non-root user
-USER $USERNAME
-# WORKDIR /home/$USERNAME
-
-RUN ! $PIPX || \
-  $($PIPX) install pre-commit
-
-# Set the default working directory
-WORKDIR $DEFAULT_WORKSPACE
-
-LABEL org.opencontainers.image.ref.name="$REPO_NAME:devcontainer-$BASE_IMAGE"
-LABEL org.opencontainers.image.title="$REPO_NAME - devcontainer - $IMAGE_NAME - $VARIANT"
-LABEL org.opencontainers.image.source=https://github.com/$REPO_NAMESPACE/$REPO_NAME
-LABEL org.opencontainers.image.description="A simple Debian-based Docker image with essential development tools and Homebrew."
-LABEL org.opencontainers.image.licenses=MIT
-# --------------------------------------------------------------
 
 
 FROM builder AS production

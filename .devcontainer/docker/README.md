@@ -24,7 +24,7 @@ _TODO_: Add complete details for each build target.
         │   └── run.sh
         ├── lib-scripts/              # Container installer scripts
         │   ├── cloud-cli-tools.sh
-        │   ├── common-generators.sh
+        │   ├── builder-generators.sh
         │   ├── builder-utils.sh
         │   ├── devtools-utils.sh
         │   ├── devtools-generators.sh

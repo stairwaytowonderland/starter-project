@@ -1,11 +1,15 @@
 {
-	"name": "VSCode Dev Container",
+	"name": "Starter Project Dev Container",
 	"image": "ghcr.io/stairwaytowonderland/starter-project:latest",
 	// "image": "ghcr.io/stairwaytowonderland/starter-project:base-ubuntu-latest",
 	// "image": "ghcr.io/stairwaytowonderland/starter-project:base-bookworm-slim",
+	// "image": "ghcr.io/stairwaytowonderland/starter-project:devtools-ubuntu-latest",
+	// "image": "ghcr.io/stairwaytowonderland/starter-project:devtools-bookworm-slim",
+	// "image": "ghcr.io/stairwaytowonderland/starter-project:cloudtools-ubuntu-latest",
+	// "image": "ghcr.io/stairwaytowonderland/starter-project:cloudtools-bookworm-slim",
 	// "build": {
 	// 	"dockerfile": "./docker/Dockerfile",
-	// 	"target": "base",
+	// 	"target": "cloudtools",
 	// 	"context": "..",
 	// 	"args": {
 	// 		"IMAGE_NAME": "debian",
@@ -15,8 +19,8 @@
 	// 		"USER_GID": "1000",
 	// 		"TIMEZONE": "America/Chicago",
 
-	// 		* NOTE: "devcontainer", "system", "latest", or specific version like "3.12"
-	// 		* Use "devcontainer" if using the Python devcontainer feature
+	// 		// * NOTE: "devcontainer", "system", "latest", or specific version like "3.12"
+	// 		// * Use "devcontainer" if using the Python devcontainer feature
 	// 		"PYTHON_VERSION": "devcontainer"
 	// 	}
 	// },
@@ -40,14 +44,14 @@
 		/*
 			Version control features
 		*/
-		"ghcr.io/devcontainers-extra/features/pre-commit:2": {},
-		"ghcr.io/devcontainers/features/github-cli:1": {}
+		// "ghcr.io/devcontainers-extra/features/pre-commit:2": {},
+		// "ghcr.io/devcontainers/features/github-cli:1": {}
 		// "ghcr.io/skriptfabrik/devcontainer-features/gitlab-cli:1": {}
 		/*
 			Systems tools feature
 			Use "none" for builder-utils username to skip creating a non-root user if user is already created in Dockerfile
 		*/
-		// "ghcr.io/devcontainers/features/builder-utils:2": {
+		// "ghcr.io/devcontainers/features/common-utils:2": {
 		// 	"username": "none"
 		// },
 		/*
