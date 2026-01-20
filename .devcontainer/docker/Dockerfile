@@ -7,18 +7,11 @@ FROM ${BASE_IMAGE} AS builder
 # Set environment variables to non-interactive (this prevents some prompts)
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Development mode flag
-ARG DEV=false
-
 # Build arguments need to be re-declared if used in FROM instructions
 # (https://docs.docker.com/build/building/variables/#scoping)
 ARG BASE_IMAGE
 ARG IMAGE_NAME
 ARG VARIANT
-# Create a non-root user
-ARG USERNAME=devcontainer
-ARG USER_UID=1000
-ARG USER_GID=$USER_UID
 ARG PASSGEN=/passgen.sh
 ARG LOGGER=/logger.sh
 ARG FIXPATH=/fixpath.sh
@@ -26,34 +19,23 @@ ARG TIMEZONE=UTC
 # Repository information (required for image labels)
 ARG REPO_NAME=devcontainer
 ARG REPO_NAMESPACE=devcontainer
-# Package management control
-ARG NO_BREW_UPDATE=$DEV
-# Other
-ARG DEFAULT_PASS_LENGTH=32
-# Default character set for password generation
-# Use '[:graph:]' for all printable characters (except space)
-# Use '[:alnum:]' for alphanumeric characters plus digits
-# Use the 'a-zA-Z0-9' form for a custom character set (or specify any characters, e.g. 'a-zA-Z0-9!@#$%^&*()')
-ARG DEFAULT_PASS_CHARSET='a-zA-Z0-9'
-# Default user workspace directory
-ARG DEFAULT_WORKSPACE=/home/$USERNAME/workspace
 
+# Timezone and locale settings
 ENV TZ=$TIMEZONE
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
-
-ENV DEV=$DEV
-ENV DEFAULT_WORKSPACE=$DEFAULT_WORKSPACE
 
 # Copy library scripts
 COPY .devcontainer/docker/lib-scripts/*.sh /tmp/lib-scripts/
 
 USER root
 
-# Update and install essential packages
+# Make scripts executable and ensure logger references are correct
 RUN chmod +x /tmp/lib-scripts/*.sh \
-  && sed -i "s|\$LOGGER|$LOGGER|g" /tmp/lib-scripts/*.sh \
-  && /tmp/lib-scripts/builder-generators.sh && \
+  && sed -i "s|\$LOGGER|$LOGGER|g" /tmp/lib-scripts/*.sh
+
+  # Update and install essential packages
+RUN /tmp/lib-scripts/builder-generators.sh && \
   # Check for mandatory build arguments (https://stackoverflow.com/a/44791255)
   : "${REPO_NAME:?Build argument needs to be set and non-empty.}" \
   && \
@@ -68,21 +50,42 @@ RUN chmod +x /tmp/lib-scripts/*.sh \
   && [ "$TIMEZONE" = "UTC" ] || \
   ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime \
     && dpkg-reconfigure -f noninteractive tzdata \
-    && $LOGGER "Timezone set to '$TIMEZONE'" \
-  # Add useful bash aliases system-wide
-  && if ! type ll >/dev/null 2>&1; then \
-    echo >> /etc/bash.bashrc && \
-    echo "alias ll='ls -alF' " >> /etc/bash.bashrc; \
-  fi \
-  # Enable bash completion for root user
-  && cat >> /root/.bashrc <<EOF
-if [ -f /etc/bash_completion ] && ! shopt -oq posix; then
-   . /etc/bash_completion
-fi
-EOF
+    && $LOGGER "Timezone set to '$TIMEZONE'"
+
+# As of Ubuntu 24 (Noble Numbat), the Ubuntu base image comes with a non-root user ubuntu with UID 1000
+# Delete this user to avoid conflicts when creating our own non-root user
+# ! Use 'userdel' to perform a shallow delete, and preserve htpasswd/group integrity for UID and GID
+RUN if [ "$IMAGE_NAME" = "ubuntu" ]; then \
+    if id "ubuntu" >/dev/null 2>&1; then \
+      $LOGGER "Deleting user 'ubuntu' for $IMAGE_NAME" \
+        && userdel -r -f ubuntu > /dev/null 2>&1 \
+        || LEVEL=error $LOGGER "Failed to delete ubuntu user for $IMAGE_NAME"; \
+    else \
+      $LOGGER "User 'ubuntu' does not exist for $IMAGE_NAME"; \
+    fi; \
+  fi
 
 
 FROM builder AS devuser
+
+# Create a non-root user
+ARG USERNAME=devcontainer
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+
+# Password generation defaults
+# Default character set for password generation
+# Use '[:graph:]' for all printable characters (except space)
+# Use '[:alnum:]' for alphanumeric characters plus digits
+# Use the 'a-zA-Z0-9' form for a custom character set (or specify any characters, e.g. 'a-zA-Z0-9!@#$%^&*()')
+ARG DEFAULT_PASS_CHARSET='a-zA-Z0-9'
+ARG DEFAULT_PASS_LENGTH=32
+
+# Development mode flag
+ARG DEV=false
+ENV DEV=$DEV
+# Package management control
+ARG NO_BREW_UPDATE=$DEV
 
 # Set default Git version to install
 # ('latest' to install latest from source, 'system' to use system Git, or specify version like '2.34.1', '2.35.0', etc.)
@@ -103,103 +106,17 @@ ENV PYTHON_VERSION=$PYTHON_VERSION
 # Update PATH here so that all shells contain the updated PATH
 ENV PATH="/home/$USERNAME/.local/bin:${PATH}"
 
-# As of Ubuntu 24 (Noble Numbat), the Ubuntu base image comes with a non-root user ubuntu with UID 1000
-# Delete this user to avoid conflicts when creating our own non-root user
-RUN if [ "$IMAGE_NAME" = "ubuntu" ]; then \
-    if id "ubuntu" >/dev/null 2>&1; then \
-      $LOGGER "Deleting user 'ubuntu' for $IMAGE_NAME" && userdel -f -r ubuntu \
-        || LEVEL=error $LOGGER "Failed to delete ubuntu user for $IMAGE_NAME"; \
-    else \
-      $LOGGER "User 'ubuntu' does not exist for $IMAGE_NAME"; \
-    fi; \
-  fi \
-  && /tmp/lib-scripts/devuser-generators.sh \
+RUN /tmp/lib-scripts/devuser-generators.sh \
   && /tmp/lib-scripts/devuser-utils.sh \
+  && /tmp/lib-scripts/git-install.sh \
+  && /tmp/lib-scripts/user-setup.sh \
   # Cleanup
   && apt-get clean -y \
   && apt-get -y autoremove \
   && rm -rf /var/lib/apt/lists/* \
   && rm -f /tmp/lib-scripts/devuser-*.sh \
-  && rm -f /tmp/lib-scripts/git-install.sh
-
-RUN cat <<EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
-
-# Ensure Homebrew is properly configured
-# The brew shellenv line exports HOMEBREW_PREFIX, HOMEBREW_CELLAR,
-# and HOMEBREW_REPOSITORY (INFOPATH is also set),
-# in addition to prepending the brew 'bin' and 'sbin' to the PATH.
-if type "$BREW" &>/dev/null
-then
-  eval "\$($BREW shellenv)"
-fi
-EOF
-
-RUN test "$PYTHON_VERSION" = "devcontainer" \
-  || test "$PYTHON_VERSION" = "$USERNAME" \
-  || test "$PYTHON_VERSION" = "system" || \
-  cat <<EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
-
-if type brew &>/dev/null
-then
-  # PYTHON_BREW_PATH="\$(brew --prefix python3)/bin"
-  PYTHON_BREW_PATH="\$(brew --prefix)/opt/python3/bin"
-  if test -d "\$PYTHON_BREW_PATH"
-  then
-    PATH="\${PYTHON_BREW_PATH}:\${PATH}"
-  fi
-fi
-EOF
-
-RUN test "$PYTHON_VERSION" != "devcontainer" \
-  && test "$PYTHON_VERSION" != "$USERNAME" \
-  && test "$PYTHON_VERSION" != "system" || \
-  cat <<EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
-
-if type /usr/local/python/current/bin/python3 &>/dev/null
-then
-  PATH="/usr/local/python/current/bin:\${PATH}"
-fi
-EOF
-
-RUN echo | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null && \
-  echo PATH="\$($FIXPATH)" | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null && \
-  cat <<EOF | tee -a /etc/skel/.profile /root/.profile > /dev/null
-
-# https://docs.brew.sh/Shell-Completion
-if type brew &>/dev/null
-then
-  HOMEBREW_PREFIX="\$(brew --prefix)"
-  if [ -r "\${HOMEBREW_PREFIX}/etc/profile.d/bash_completion.sh" ]
-  then
-    source "\${HOMEBREW_PREFIX}/etc/profile.d/bash_completion.sh"
-  else
-    for COMPLETION in "\${HOMEBREW_PREFIX}/etc/bash_completion.d/"*
-    do
-      ! test  -r "\${COMPLETION}" || source "\${COMPLETION}"
-    done
-  fi
-fi
-EOF
-
-# Create a new non-root user with sudo privileges
-RUN groupadd --gid $USER_GID $USERNAME \
-  && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME -s /bin/bash \
-  && echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
-  && chmod 0440 /etc/sudoers.d/$USERNAME
-
-# Set default password for root user to 'docker'
-# Only for development purposes; password can be changed at runtime
-# DO NOT use in production environments
-# Avoid using 'chpasswd' with here-string (e.g. chpasswd <<<"root:docker") as it may not be supported in some shells
-RUN if [ "$DEFAULT_ROOT_PASS" = "true" ] ; then \
-    $LOGGER "Setting default root password to 'docker' (for development purposes only)"; \
-    echo "root:docker" | chpasswd; \
-  fi
-
-# Create SSH directory for non-root user to ensure proper permissions
-RUN mkdir -p /home/$USERNAME/.ssh \
-  && chown -R $USERNAME:$USERNAME /home/$USERNAME/.ssh \
-  && chmod 700 /home/$USERNAME/.ssh
+  && rm -f /tmp/lib-scripts/git-install.sh \
+  && rm -f /tmp/lib-scripts/user-setup.sh
 
 # Install Homebrew for the non-root user
 # Note: Homebrew on Linux doesn't require admin privileges when installed in home directory
@@ -207,11 +124,6 @@ USER $USERNAME
 WORKDIR /home/$USERNAME
 
 RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# RUN git --version && $BREW --version
-
-# Set USER back to root for next stage
-USER root
 
 # Set default command to login shell
 CMD ["/bin/bash"]
@@ -222,6 +134,12 @@ CMD ["/bin/bash"]
 # THIS IS THE base `devcontainer` TARGET
 # --------------------------------------------------------------
 FROM devuser AS base
+
+ARG PRE_COMMIT_ENABLED=false
+
+# Default user workspace directory
+ARG DEFAULT_WORKSPACE=/home/$USERNAME/workspace
+ENV DEFAULT_WORKSPACE=$DEFAULT_WORKSPACE
 
 # Set default to not reset root password, in case devcontainer inherits from devtools or cloudtools
 # Precautionary measure to avoid interactive prompt when running devcontainer
@@ -242,13 +160,17 @@ RUN /tmp/lib-scripts/base-utils.sh \
 
 # Switch to non-root user
 USER $USERNAME
-# WORKDIR /home/$USERNAME
-
-RUN ! $PIPX || \
-  $($PIPX) install pre-commit
-
-# Set the default working directory
 WORKDIR $DEFAULT_WORKSPACE
+
+# If pipx is installed, it implies a user-managed Python environment; use it to install pre-commit
+# Otherwise, install as a feature via devcontainer.json
+# Use flag (build-arg) to install pre-commit with Homebrew to keep base image size down (Homebrew will install Python dependencies)
+RUN if $PIPX; then \
+    $($PIPX) install pre-commit; \
+  else \
+    test "$PRE_COMMIT_ENABLED" != "true" \
+      || $BREW install pre-commit; \
+  fi
 
 LABEL org.opencontainers.image.ref.name="$REPO_NAME:devcontainer-$BASE_IMAGE"
 LABEL org.opencontainers.image.title="$REPO_NAME - devcontainer - $IMAGE_NAME - $VARIANT"
@@ -326,9 +248,6 @@ USER $USERNAME
 RUN if $PIPX; then \
     $($PIPX) install cfn; \
   fi
-
-# Verify installations
-RUN aws --version && terraform version
 
 
 FROM devtools AS codeserver

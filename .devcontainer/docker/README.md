@@ -28,7 +28,9 @@ _TODO_: Add complete details for each build target.
         │   ├── builder-utils.sh
         │   ├── devtools-utils.sh
         │   ├── devtools-generators.sh
-        │   └── devuser-utils.sh
+        │   ├── devtools-utils.sh
+        │   ├── git-install.sh
+        │   └── user-setup.sh
         └── utils/                    # Container utility scripts
             ├── post-starte.sh
             └── start-code-server.sh

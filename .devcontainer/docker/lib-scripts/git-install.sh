@@ -8,6 +8,8 @@ GIT_VERSION="${GIT_VERSION:-latest}"
 USE_PPA_IF_AVAILABLE="${USE_PPA_IF_AVAILABLE:-true}"
 SOURCE_AS_FALLBACK="${SOURCE_AS_FALLBACK:-false}"
 
+$LOGGER "Installing GIT $GIT_VERSION ..."
+
 apt-get update
 
 export DEBIAN_FRONTEND=noninteractive

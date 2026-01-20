@@ -19,8 +19,8 @@
 	// 		"USER_GID": "1000",
 	// 		"TIMEZONE": "America/Chicago",
 
-	// 		// * NOTE: "devcontainer", "system", "latest", or specific version like "3.12"
-	// 		// * Use "devcontainer" if using the Python devcontainer feature
+	// 		* NOTE: "devcontainer", "system", "latest", or specific version like "3.12"
+	// 		* Use "devcontainer" if using the Python devcontainer feature
 	// 		"PYTHON_VERSION": "devcontainer"
 	// 	}
 	// },
