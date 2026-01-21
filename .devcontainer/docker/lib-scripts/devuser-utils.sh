@@ -2,6 +2,7 @@
 
 set -e
 
+# * Not currently a build arg but could be in future
 USE_PPA_IF_AVAILABLE="${USE_PPA_IF_AVAILABLE:-true}"
 
 $LOGGER "Installing devuser utilities and dependencies..."
@@ -11,7 +12,6 @@ apt-get update
 export DEBIAN_FRONTEND=noninteractive
 
 # * Install sudo here so production image doesn't have it
-# ! Homebrew recommends `build-essential`, which is large, and a non-fixable high cve (as of January 2026); Install only if needed
 apt-get -y install --no-install-recommends \
     sudo \
     bash-completion \

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1091
 
-# ./.devcontainer/docker/bin/run.sh \
+# [REMOTE_HUB=<your-remote-hub>] ./.devcontainer/docker/bin/run.sh \
 #   starter-project:devcontainer \
 #   vscode \
 #   .
@@ -57,26 +57,37 @@ fi
 REMOTE_USER="${REMOTE_USER:-devcontainer}"
 IMAGE_VERSION="${IMAGE_VERSION:-latest}"
 
-tag_suffix="${BASE_IMAGE_VARIANT}"
-# Append image version if not 'latest'
-[ "$IMAGE_VERSION" = "latest" ] || tag_suffix="${tag_suffix}-${IMAGE_VERSION}"
-
-tag_prefix="${IMAGE_NAME}:${DOCKER_TARGET}"
-# Append base image name if variant is 'latest'
-[ "$BASE_IMAGE_VARIANT" != "latest" ] || tag_prefix="${tag_prefix}-${BASE_IMAGE_NAME}"
-
-build_tag="${tag_prefix}-${BASE_IMAGE_VARIANT}"
-publish_tag="${tag_prefix}-${tag_suffix}"
-
-if docker image inspect "${build_tag}" > /dev/null 2>&1; then
-    echo "Found Docker image '${build_tag}'"
-    docker_tag="${build_tag}"
-elif docker image inspect "${publish_tag}" > /dev/null 2>&1; then
-    echo "Found Docker image '${publish_tag}'"
-    docker_tag="${publish_tag}"
+REMOTE_HUB="${REMOTE_HUB-}"
+if [ -n "$REMOTE_HUB" ]; then
+    docker_tag="${REMOTE_HUB}/${IMAGE_NAME}:${DOCKER_TARGET}"
 else
-    echo "Docker image '${IMAGE_NAME}:${DOCKER_TARGET}' not found locally. Please build the image first."
-    exit 1
+    tag_suffix="${BASE_IMAGE_VARIANT}"
+    # Append image version if not 'latest'
+    [ "$IMAGE_VERSION" = "latest" ] || tag_suffix="${tag_suffix}-${IMAGE_VERSION}"
+
+    tag_prefix="${IMAGE_NAME}:${DOCKER_TARGET}"
+    # Append base image name if variant is 'latest'
+    [ "$BASE_IMAGE_VARIANT" != "latest" ] || tag_prefix="${tag_prefix}-${BASE_IMAGE_NAME}"
+
+    build_tag="${tag_prefix}-${BASE_IMAGE_VARIANT}"
+    publish_tag="${tag_prefix}-${tag_suffix}"
+
+    build_id="$(docker images -q "${build_tag}")"
+    publish_id="$(docker images -q "${publish_tag}")"
+    image_id="${build_id:-$publish_id}"
+
+    echo "Looking for Docker image id '${image_id}' ('${build_tag}' or '${publish_tag}') locally..."
+
+    if docker image inspect "$build_id" > /dev/null 2>&1; then
+        echo "Found Docker image '${build_tag}'"
+        docker_tag="${build_tag}"
+    elif docker image inspect "$publish_id" > /dev/null 2>&1; then
+        echo "Found Docker image '${publish_tag}'"
+        docker_tag="${publish_tag}"
+    else
+        echo "Docker image not found locally. Please build the image first."
+        exit 1
+    fi
 fi
 
 workspace_dir="/home/${REMOTE_USER}/workspace"
@@ -115,7 +126,7 @@ else
     if [ -r "$HOME/.gitconfig" ]; then
         com+=("-v" "$HOME/.gitconfig:/etc/gitconfig:ro")
     fi
-    if [ "$DOCKER_TARGET" = "codeserver" ]; then
+    if echo "$DOCKER_TARGET" | grep -qE "^codeserver"; then
         com+=("-p" "${HOST_IP:-0.0.0.0}:${HOST_PORT:-8080}:${CONTAINER_PORT:-8080}")
     fi
 fi

@@ -79,16 +79,14 @@ _TODO_: Add complete details for each build target.
 
 The Dockerfile accepts several build arguments that can be customized:
 
-| Argument         | Default                | Target     | Description                            |
-| ---------------- | ---------------------- | ---------- | -------------------------------------- |
-| `IMAGE_NAME`     | `ubuntu`               | base       | Base image name (must be Debian-based) |
-| `VARIANT`        | `latest`               | base       | Base image tag/version                 |
-| `USERNAME`       | `devcontainer`         | base       | Non-root user name to create           |
-| `USER_UID`       | `1000`                 | base       | User ID for the non-root user          |
-| `USER_GID`       | `$USER_UID`            | base       | Group ID for the non-root user         |
-| `REPO_NAME`      | `starter-project`      | base       | Your repository name                   |
-| `REPO_NAMESPACE` | `stairwaytowonderland` | base       | Your repository namespace (owner)      |
-| `BIND_ADDR`      | `0.0.0.0:8080`         | codeserver | Group ID for the non-root user         |
+| Argument     | Default        | Target     | Description                            |
+| ------------ | -------------- | ---------- | -------------------------------------- |
+| `IMAGE_NAME` | `ubuntu`       | base       | Base image name (must be Debian-based) |
+| `VARIANT`    | `latest`       | base       | Base image tag/version                 |
+| `USERNAME`   | `devcontainer` | base       | Non-root user name to create           |
+| `USER_UID`   | `1000`         | base       | User ID for the non-root user          |
+| `USER_GID`   | `$USER_UID`    | base       | Group ID for the non-root user         |
+| `BIND_ADDR`  | `0.0.0.0:8080` | codeserver | Group ID for the non-root user         |
 
 > [!NOTE]
 > As of Ubuntu 24+, a non-root `ubuntu` user exists. The Dockerfile automatically removes

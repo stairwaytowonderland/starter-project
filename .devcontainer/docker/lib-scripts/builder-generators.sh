@@ -39,18 +39,15 @@ touch "$PASSGEN" \
     && cat > "$PASSGEN" << EOF
 #!/bin/sh
 
-DEFAULT_PASS_LENGTH='${DEFAULT_PASS_LENGTH:-32}'
-DEFAULT_PASS_CHARSET='${DEFAULT_PASS_CHARSET:-[:graph:]}'
-
-# Generate a random \${DEFAULT_PASS_LENGTH:-32}-character alphanumeric password (unless otherwise specified)
+# Generate a random $DEFAULT_PASS_LENGTH-character alphanumeric password (unless otherwise specified)
 
 # Usage: $PASSGEN [simple|requirements] [length] [charset|min_char_per_fam]
 #
 # Arguments:
 #   mode: 'simple' for simple password generation (default)
 #         'requirements' for password generation with character family requirements
-#   length: Length of password to generate (default: \${DEFAULT_PASS_LENGTH})
-#   charset: Characters to use for password generation (simple mode only; default: \${DEFAULT_PASS_CHARSET})
+#   length: Length of password to generate (default: $DEFAULT_PASS_LENGTH)
+#   charset: Characters to use for password generation (simple mode only; default: $DEFAULT_PASS_CHARSET)
 #           Use '[:graph:]' for all printable characters (except space)
 #           Use '[:alnum:]' for alphanumeric characters plus digits
 #           Use a custom set of characters (e.g. '0-9a-zA-Z!@#$%^&*()')
@@ -59,27 +56,30 @@ DEFAULT_PASS_CHARSET='${DEFAULT_PASS_CHARSET:-[:graph:]}'
 # Output:
 #   Randomly generated password
 
+CODESERVER_PASS_LENGTH="\${CODESERVER_PASS_LENGTH:-$DEFAULT_PASS_LENGTH}"
+CODESERVER_PASS_CHARSET="\${CODESERVER_PASS_CHARSET:-$DEFAULT_PASS_CHARSET}"
+
 simple_pass() {
     # Does not guarantee character family requirements
 
     full_charset='[:graph:]'
     alpha_charset='[:alnum:]'
     custom_charset='0-9a-zA-Z!%^&.@$*_:.,?-'
-    default_charset="\${DEFAULT_PASS_CHARSET:-\$full_charset}"
-    LC_ALL=C tr -dc "\${2:-\$default_charset}" < /dev/urandom | head -c"\${1:-\$DEFAULT_PASS_LENGTH}"
+    default_charset="\${CODESERVER_PASS_CHARSET:-\$full_charset}"
+    LC_ALL=C tr -dc "\${2:-\$default_charset}" < /dev/urandom | head -c"\${1:-\$CODESERVER_PASS_LENGTH}"
 }
 
 requirements_pass() {
     # Guarantees at least 2 characters from each character family: digits, lowercase, uppercase, special
 
-    max_string_len=\${1:-\$DEFAULT_PASS_LENGTH}
+    max_string_len=\${1:-\$CODESERVER_PASS_LENGTH}
     min_char_per_fam=\${2:-2}
 
     tr_num='0-9'
     tr_lower='a-z'
     tr_upper='A-Z'
     tr_special='!%^&.@\$*_:.,?-'
-    tr_special_addtl='~#|<>[]{}()/+=;'
+    tr_special_addtl='~#|<>[]\{\}()\/+=;'
 
     set -- "\$tr_num" "\$tr_lower" "\$tr_upper" "\$tr_special" "\$tr_special_addtl"
     count="\$#"
@@ -105,10 +105,12 @@ else
         simple)
             shift
             simple_pass "\$@"
+            break
             ;;
         requirements)
             shift
             requirements_pass "\$@"
+            break
             ;;
         *)
             echo "Invalid mode: \$1" >&2

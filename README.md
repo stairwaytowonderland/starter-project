@@ -16,7 +16,6 @@ Use this repo as a starting point for other new projects.
 │   ├── devcontainer.json     # VS Code Dev Container configuration
 │   └── README.md
 ├── .vscode/
-│   ├── Brewfile              # Brew bundle file to easily install the vscode extensions
 │   ├── extensions.json       # VS Code recommended extensions file
 │   └── settings.json         # VS Code settings file
 ├── src                       # Source files (example)
@@ -75,38 +74,7 @@ git push -u origin main
 - [Prettier](https://prettier.io/)
 - [pre-commit](https://pre-commit.com/)
 
-## Tool Notes
-
-### General
-
-#### pre-commit
-
-Install with `pip` or `brew`.
-
 > [!NOTE]
-> The _VS Code_ `settings.json` file supports [`jsonc`](https://jsonc.org/)
-> syntax (JSON with comments), however the file itself
-> cannot be renamed to a `.jsonc` extension.
-
-To prevent the _pre-commit_ [`pre-commit/check-json`](./.pre-commit-config.yaml)
-hook from complaining about improper JSON formatting (i.e. comments) in the
-workspace [.vscode/settings](./.vscode/settings.json) file,
-it's best to ignore it entirely:
-
-```yaml
-repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
-    hooks:
-      - id: check-json
-        exclude: ^(\.vscode/.*\.json|devcontainer\.json)$
-```
-
-See the [official docs](https://pre-commit.com/) for more details.
-
-#### Prettier
-
-For a more customized experience, some files might need to be excluded from _Prettier_.
-
-See the [official docs](https://prettier.io/docs/ignore) for details
-on ignoring code.
+> For a more customized experience, some files might need to be excluded from _Prettier_.
+>
+> See the [official docs](https://prettier.io/docs/ignore) for details on ignoring code.

@@ -4,9 +4,6 @@ ARG VARIANT=${VARIANT:-latest}
 ARG BASE_IMAGE=${IMAGE_NAME}:${VARIANT}
 FROM ${BASE_IMAGE} AS builder
 
-# Set environment variables to non-interactive (this prevents some prompts)
-ENV DEBIAN_FRONTEND=noninteractive
-
 # Build arguments need to be re-declared if used in FROM instructions
 # (https://docs.docker.com/build/building/variables/#scoping)
 ARG BASE_IMAGE
@@ -16,14 +13,24 @@ ARG PASSGEN=/passgen.sh
 ARG LOGGER=/logger.sh
 ARG FIXPATH=/fixpath.sh
 ARG TIMEZONE=UTC
-# Repository information (required for image labels)
-ARG REPO_NAME=devcontainer
-ARG REPO_NAMESPACE=devcontainer
 
 # Timezone and locale settings
 ENV TZ=$TIMEZONE
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
+
+# Password generation defaults
+# Default character set for password generation
+# Use '[:graph:]' for all printable characters (except space)
+# Use '[:alnum:]' for alphanumeric characters plus digits
+# Use the 'a-zA-Z0-9' form for a custom character set (or specify any characters, e.g. 'a-zA-Z0-9!@#$%^&*()')
+ARG DEFAULT_PASS_CHARSET='[:graph:]'
+ARG DEFAULT_PASS_LENGTH=32
+ENV CODESERVER_PASS_LENGTH=$DEFAULT_PASS_LENGTH
+ENV CODESERVER_PASS_CHARSET=$DEFAULT_PASS_CHARSET
+
+# Set environment variables to non-interactive (this prevents some prompts)
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Copy library scripts
 COPY .devcontainer/docker/lib-scripts/*.sh /tmp/lib-scripts/
@@ -35,17 +42,12 @@ RUN chmod +x /tmp/lib-scripts/*.sh \
   && sed -i "s|\$LOGGER|$LOGGER|g" /tmp/lib-scripts/*.sh
 
   # Update and install essential packages
-RUN /tmp/lib-scripts/builder-generators.sh && \
-  # Check for mandatory build arguments (https://stackoverflow.com/a/44791255)
-  : "${REPO_NAME:?Build argument needs to be set and non-empty.}" \
-  && \
-  : "${REPO_NAMESPACE:?Build argument needs to be set and non-empty.}" \
-  # Update package lists and install packages
+RUN /tmp/lib-scripts/builder-generators.sh \
   && /tmp/lib-scripts/builder-utils.sh \
   # Cleanup
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/* \
-  && rm -rf /tmp/lib-scripts/builder-*.sh \
+  # && rm -rf /tmp/lib-scripts/builder-*.sh \
   # Set timezone
   && [ "$TIMEZONE" = "UTC" ] || \
   ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime \
@@ -75,24 +77,20 @@ ARG USERNAME=devcontainer
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
-# Password generation defaults
-# Default character set for password generation
-# Use '[:graph:]' for all printable characters (except space)
-# Use '[:alnum:]' for alphanumeric characters plus digits
-# Use the 'a-zA-Z0-9' form for a custom character set (or specify any characters, e.g. 'a-zA-Z0-9!@#$%^&*()')
-ARG DEFAULT_PASS_CHARSET='a-zA-Z0-9'
-ARG DEFAULT_PASS_LENGTH=32
-
 # Development mode flag
 ARG DEV=false
 ENV DEV=$DEV
+
 # Package management control
+# Whether to install Homebrew
+# (Very large and has a non-fixable high cve (as of January 2026); install only if needed)
 ARG HOMEBREW_ENABLED=false
 ARG NO_BREW_UPDATE=$DEV
 # Default path to Homebrew binary (for convenience; not likely to change)
 ARG BREW=/home/linuxbrew/.linuxbrew/bin/brew
 # Path to pipx binary locator script
 ARG PIPX=/pipxpath.sh
+
 # Set default Git version to install
 # ('latest' to install latest from source, 'system' to use system Git, or specify version like '2.34.1', '2.35.0', etc.)
 ARG GIT_VERSION=latest
@@ -107,6 +105,9 @@ ARG DEFAULT_ROOT_PASS=$DEV
 ENV PYTHON_VERSION=$PYTHON_VERSION
 # Update PATH here so that all shells contain the updated PATH
 ENV PATH="/home/$USERNAME/.local/bin:${PATH}"
+
+RUN sed -i "s|\$DEFAULT_PASS_CHARSET|$DEFAULT_PASS_CHARSET|g" $PASSGEN \
+  && sed -i "s|\$DEFAULT_PASS_LENGTH|$DEFAULT_PASS_LENGTH|g" $PASSGEN
 
 RUN /tmp/lib-scripts/devuser-generators.sh \
   && /tmp/lib-scripts/devuser-utils.sh \
@@ -138,6 +139,11 @@ CMD ["/bin/bash"]
 # --------------------------------------------------------------
 FROM devuser AS base
 
+# Whether to install shfmt (shell script formatter) system-wide
+# (has many CVEs in the Go toolchain; install only if needed)
+ARG SHFMT_ENABLED=false
+# Whether to install pre-commit via Homebrew
+# (will result in Homebrew installing Python dependencies)
 ARG PRE_COMMIT_ENABLED=false
 
 # Default user workspace directory
@@ -153,9 +159,10 @@ COPY .devcontainer/docker/utils/post-start.sh /usr/local/bin/post-start
 
 USER root
 
+RUN sed -i "s|\$LOGGER|$LOGGER|g" /usr/local/bin/post-start \
+  && chmod +x /usr/local/bin/post-start
+
 RUN /tmp/lib-scripts/base-utils.sh \
-  && chmod +x /usr/local/bin/post-start \
-  && sed -i "s|\$LOGGER|$LOGGER|g" /usr/local/bin/post-start \
   # Cleanup
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/* \
@@ -175,9 +182,9 @@ RUN if $PIPX 2>/dev/null; then \
       || { test "$HOMEBREW_ENABLED" != "true" || $BREW install pre-commit; }; \
   fi
 
-LABEL org.opencontainers.image.ref.name="$REPO_NAME:devcontainer-$BASE_IMAGE"
-LABEL org.opencontainers.image.title="$REPO_NAME - devcontainer - $IMAGE_NAME - $VARIANT"
-LABEL org.opencontainers.image.source=https://github.com/$REPO_NAMESPACE/$REPO_NAME
+LABEL org.opencontainers.image.ref.name="<repo-name>:devcontainer-$BASE_IMAGE"
+LABEL org.opencontainers.image.title="<repo-name> - devcontainer - $IMAGE_NAME - $VARIANT"
+LABEL org.opencontainers.image.source=<server-fqdn>/<repo-owner-or-namespace>/<repo-name>
 LABEL org.opencontainers.image.description="A simple Debian-based Docker image with essential development tools and Homebrew."
 LABEL org.opencontainers.image.licenses=MIT
 
@@ -237,7 +244,7 @@ CMD ["/bin/bash"]
 # --------------------------------------------------------------
 
 
-FROM devtools AS cloudtools
+FROM base AS cloudtools
 
 # TODO: Additional cloud CLI and Terraform installations
 # ? https://github.com/awslabs/aws-terraform-dev-container/blob/main/.devcontainer/library-scripts/cloud-cli-tools.sh
@@ -254,7 +261,7 @@ RUN /tmp/lib-scripts/cloud-cli-tools.sh \
 USER $USERNAME
 
 RUN if $PIPX; then \
-    $($PIPX) install cfn; \
+    $($PIPX) install cfn-lint; \
   fi
 
 # --------------------------------------------------------------
@@ -276,12 +283,13 @@ COPY .devcontainer/docker/utils/start-code-server.sh /usr/local/bin/start-code-s
 
 USER root
 
-RUN apt-get update \
-  && apt-get -y install --no-install-recommends tini \
-  && chmod +x /usr/local/bin/start-code-server \
-  && sed -i "s|\$LOGGER|$LOGGER|g" /usr/local/bin/start-code-server \
+RUN sed -i "s|\$LOGGER|$LOGGER|g" /usr/local/bin/start-code-server \
   && sed -i "s|\$PASSGEN|$PASSGEN|g" /usr/local/bin/start-code-server \
   && sed -i "s|\$DEV|$DEV|g" /usr/local/bin/start-code-server \
+  && chmod +x /usr/local/bin/start-code-server
+
+RUN apt-get update \
+  && apt-get -y install --no-install-recommends tini \
   # Cleanup
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/*
@@ -289,14 +297,6 @@ RUN apt-get update \
 USER $USERNAME
 
 RUN curl -fsSL https://code-server.dev/install.sh | sh
-
-# RUN if  [ "$HOMEBREW_ENABLED" = "true" ]; then \
-#     test "$NO_BREW_UPDATE" = "true" || $BREW update \
-#       && $BREW install code-server; \
-#   else \
-#     LEVEL=error $LOGGER "Homebrew is required but not installed." \
-#       && exit 1; \
-#   fi
 
 EXPOSE 8080
 
