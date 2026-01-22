@@ -9,6 +9,7 @@ FROM ${BASE_IMAGE} AS builder
 ARG BASE_IMAGE
 ARG IMAGE_NAME
 ARG VARIANT
+
 ARG PASSGEN=/passgen.sh
 ARG LOGGER=/logger.sh
 ARG FIXPATH=/fixpath.sh
@@ -33,16 +34,13 @@ ENV CODESERVER_PASS_CHARSET=$DEFAULT_PASS_CHARSET
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Copy library scripts
-COPY .devcontainer/docker/lib-scripts/*.sh /tmp/lib-scripts/
+COPY --chmod=755 .devcontainer/docker/lib-scripts/*.sh /tmp/lib-scripts/
 
 USER root
 
-# Make scripts executable and ensure logger references are correct
-RUN chmod +x /tmp/lib-scripts/*.sh \
-  && sed -i "s|\$LOGGER|$LOGGER|g" /tmp/lib-scripts/*.sh
-
-  # Update and install essential packages
-RUN /tmp/lib-scripts/builder-generators.sh \
+# Update and install essential packages
+RUN sed -i "s|\$LOGGER|$LOGGER|g" /tmp/lib-scripts/*.sh \
+  && /tmp/lib-scripts/builder-generators.sh \
   && /tmp/lib-scripts/builder-utils.sh \
   # Cleanup
   && apt-get clean -y \
@@ -81,11 +79,6 @@ ARG USER_GID=$USER_UID
 ARG DEV=false
 ENV DEV=$DEV
 
-# Package management control
-# Whether to install Homebrew
-# (Very large and has a non-fixable high cve (as of January 2026); install only if needed)
-ARG HOMEBREW_ENABLED=false
-ARG NO_BREW_UPDATE=$DEV
 # Default path to Homebrew binary (for convenience; not likely to change)
 ARG BREW=/home/linuxbrew/.linuxbrew/bin/brew
 # Path to pipx binary locator script
@@ -106,9 +99,6 @@ ENV PYTHON_VERSION=$PYTHON_VERSION
 # Update PATH here so that all shells contain the updated PATH
 ENV PATH="/home/$USERNAME/.local/bin:${PATH}"
 
-RUN sed -i "s|\$DEFAULT_PASS_CHARSET|$DEFAULT_PASS_CHARSET|g" $PASSGEN \
-  && sed -i "s|\$DEFAULT_PASS_LENGTH|$DEFAULT_PASS_LENGTH|g" $PASSGEN
-
 RUN /tmp/lib-scripts/devuser-generators.sh \
   && /tmp/lib-scripts/devuser-utils.sh \
   && /tmp/lib-scripts/git-install.sh \
@@ -125,6 +115,11 @@ RUN /tmp/lib-scripts/devuser-generators.sh \
 USER $USERNAME
 WORKDIR /home/$USERNAME
 
+# Package management control
+# Whether to install Homebrew
+# (Very large and has a non-fixable high cve (as of January 2026); install only if needed)
+ARG HOMEBREW_ENABLED=false
+ARG NO_BREW_UPDATE=$DEV
 RUN test "$HOMEBREW_ENABLED" != "true" \
   || NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
@@ -142,9 +137,6 @@ FROM devuser AS base
 # Whether to install shfmt (shell script formatter) system-wide
 # (has many CVEs in the Go toolchain; install only if needed)
 ARG SHFMT_ENABLED=false
-# Whether to install pre-commit via Homebrew
-# (will result in Homebrew installing Python dependencies)
-ARG PRE_COMMIT_ENABLED=false
 
 # Default user workspace directory
 ARG DEFAULT_WORKSPACE=/home/$USERNAME/workspace
@@ -155,14 +147,12 @@ ENV DEFAULT_WORKSPACE=$DEFAULT_WORKSPACE
 ENV RESET_ROOT_PASS=false
 
 # Copy post-start script
-COPY .devcontainer/docker/utils/post-start.sh /usr/local/bin/post-start
+COPY --chmod=755 .devcontainer/docker/utils/post-start.sh /usr/local/bin/post-start
 
 USER root
 
 RUN sed -i "s|\$LOGGER|$LOGGER|g" /usr/local/bin/post-start \
-  && chmod +x /usr/local/bin/post-start
-
-RUN /tmp/lib-scripts/base-utils.sh \
+  & /tmp/lib-scripts/base-utils.sh \
   # Cleanup
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/* \
@@ -172,6 +162,9 @@ RUN /tmp/lib-scripts/base-utils.sh \
 USER $USERNAME
 WORKDIR $DEFAULT_WORKSPACE
 
+# Whether to install pre-commit via Homebrew
+# (will result in Homebrew installing Python dependencies)
+ARG PRE_COMMIT_ENABLED=false
 # If pipx is installed, it implies a user-managed Python environment; use it to install pre-commit
 # Otherwise, install as a feature via devcontainer.json
 # Use flag (build-arg) to install pre-commit with Homebrew to keep base image size down (Homebrew will install Python dependencies)
@@ -210,7 +203,7 @@ RUN /tmp/lib-scripts/devtools-utils.sh \
 # Switch to non-root user
 USER $USERNAME
 
-# Install Python via Homebrew, pipx, Poetry, uv, and other dev tools via Homebrew.
+# Install Python, pipx, Poetry, uv, and other dev tools via Homebrew.
 # Do nothing if PYTHON_VERSION is 'devcontainer' or matches the USERNAME.
 # USERNAME cannot be 'system' or 'latest'.
 RUN if  [ "$HOMEBREW_ENABLED" = "true" ]; then \
@@ -234,7 +227,16 @@ RUN if  [ "$HOMEBREW_ENABLED" = "true" ]; then \
         poetry \
         uv; \
       fi; \
+  else \
+    if [ "$PYTHON_VERSION" = "latest" ] \
+      && $PIPX 2> /dev/null; then \
+        $($PIPX) install pip; \
+    fi; \
   fi
+
+USER root
+
+USER $USERNAME
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 
@@ -260,9 +262,49 @@ RUN /tmp/lib-scripts/cloud-cli-tools.sh \
 
 USER $USERNAME
 
-RUN if $PIPX; then \
+RUN if $PIPX 2>/dev/null; then \
     $($PIPX) install cfn-lint; \
   fi
+
+# --------------------------------------------------------------
+
+
+FROM base AS codeserver-minimal
+
+ARG BIND_ADDR=0.0.0.0:8080
+ENV BIND_ADDR=$BIND_ADDR
+ENV DEBUG=false
+
+# Don't put CODE_SERVER_CONFIG in workspace directly to avoid issues with volume mounts
+ENV CODE_SERVER_WORKSPACE=$DEFAULT_WORKSPACE
+ENV CODE_SERVER_CONFIG=/home/$USERNAME/.config/code-server/config.yaml
+ENV CODE_SERVER_EXTENSIONS=$DEFAULT_WORKSPACE/.code-server/extensions/extensions.json
+
+COPY --chmod=755 .devcontainer/docker/utils/start-code-server.sh /usr/local/bin/start-code-server
+
+USER root
+
+RUN /tmp/lib-scripts/codeserver-utils.sh
+
+USER $USERNAME
+
+RUN $LOGGER "Installing code-server..." \
+  && curl -fsSL https://code-server.dev/install.sh | sh \
+  && $LOGGER "code-server installation complete."
+
+EXPOSE 8080
+
+WORKDIR $DEFAULT_WORKSPACE
+
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# CMD ["start-code-server"]
+CMD ["/bin/sh", "-c", "start-code-server --config-only && set -x ; \
+    exec code-server \
+      --bind-addr $BIND_ADDR \
+      --extensions-dir \
+      $(dirname $CODE_SERVER_EXTENSIONS) \
+      ${CODE_SERVER_WORKSPACE:-.}"]
 
 # --------------------------------------------------------------
 
@@ -270,33 +312,25 @@ RUN if $PIPX; then \
 FROM devtools AS codeserver
 
 ARG BIND_ADDR=0.0.0.0:8080
+ENV BIND_ADDR=$BIND_ADDR
+ENV DEBUG=false
 
 # Don't put CODE_SERVER_CONFIG in workspace directly to avoid issues with volume mounts
 ENV CODE_SERVER_WORKSPACE=$DEFAULT_WORKSPACE
 ENV CODE_SERVER_CONFIG=/home/$USERNAME/.config/code-server/config.yaml
 ENV CODE_SERVER_EXTENSIONS=$DEFAULT_WORKSPACE/.code-server/extensions/extensions.json
 
-ENV BIND_ADDR=$BIND_ADDR
-ENV DEBUG=false
-
-COPY .devcontainer/docker/utils/start-code-server.sh /usr/local/bin/start-code-server
+COPY --chmod=755 .devcontainer/docker/utils/start-code-server.sh /usr/local/bin/start-code-server
 
 USER root
 
-RUN sed -i "s|\$LOGGER|$LOGGER|g" /usr/local/bin/start-code-server \
-  && sed -i "s|\$PASSGEN|$PASSGEN|g" /usr/local/bin/start-code-server \
-  && sed -i "s|\$DEV|$DEV|g" /usr/local/bin/start-code-server \
-  && chmod +x /usr/local/bin/start-code-server
-
-RUN apt-get update \
-  && apt-get -y install --no-install-recommends tini \
-  # Cleanup
-  && apt-get clean -y \
-  && rm -rf /var/lib/apt/lists/*
+RUN /tmp/lib-scripts/codeserver-utils.sh
 
 USER $USERNAME
 
-RUN curl -fsSL https://code-server.dev/install.sh | sh
+RUN $LOGGER "Installing code-server..." \
+  && curl -fsSL https://code-server.dev/install.sh | sh \
+  && $LOGGER "code-server installation complete."
 
 EXPOSE 8080
 

@@ -8,7 +8,7 @@ apt-get update
 
 export DEBIAN_FRONTEND=noninteractive
 
-# * Always install system python3
+# * Always install system Python3
 apt-get -y install --no-install-recommends \
     ca-certificates \
     gnupg2 \
