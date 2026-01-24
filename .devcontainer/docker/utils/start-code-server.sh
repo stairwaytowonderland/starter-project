@@ -9,7 +9,7 @@ BIND_ADDR="${BIND_ADDR:-0.0.0.0:8080}"
 [ "$DEBUG" != "true" ] || exec /bin/bash
 
 if ! type "$CODESERVER" > /dev/null 2>&1; then
-    LEVEL=error $LOGGER "Error: code-server not found at expected location: $CODESERVER" >&2
+    LEVEL=error $LOGGER "code-server not found at expected location: $CODESERVER" >&2
     exit 1
 fi
 

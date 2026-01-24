@@ -2,7 +2,7 @@
 
 set -e
 
-$LOGGER "Installing common utilities and dependencies..."
+LEVEL='*' $LOGGER "Installing common utilities and dependencies..."
 
 apt-get update
 

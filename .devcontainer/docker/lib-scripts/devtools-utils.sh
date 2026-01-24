@@ -6,18 +6,18 @@ set -e
 
 install_packages() {
     # shellcheck disable=SC2086
-    $LOGGER "Installing the following packages: "$*
+    LEVEL='*' $LOGGER "Installing the following packages: "$*
     # shellcheck disable=SC2086,SC2048
     apt-get -y install --no-install-recommends $*
 }
 
-$LOGGER "Installing devtools utilities and dependencies..."
+LEVEL='*' $LOGGER "Installing devtools utilities and dependencies..."
 
 apt-get update
 
 export DEBIAN_FRONTEND=noninteractive
 
-PACKAGES_TO_INSTALL="$(
+PACKAGES_TO_INSTALL="${PACKAGES_TO_INSTALL% } $(
     cat << EOF
 tar
 make
@@ -32,7 +32,8 @@ EOF
 if type "$BREW" > /dev/null 2>&1; then
     PACKAGES_TO_INSTALL="$PACKAGES_TO_INSTALL $(
         cat << EOF
- build-essential
+build-essential
+gcc
 EOF
     )"
 fi
@@ -44,7 +45,8 @@ curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
 nodejs
 EOF
     )" \
-    && $LOGGER "Node.js and npm packages: $PACKAGES_TO_INSTALL" \
-    && install_packages "$PACKAGES_TO_INSTALL"
+    && $LOGGER "Node.js and npm packages: $PACKAGES_TO_INSTALL"
+
+install_packages "${PACKAGES_TO_INSTALL# }"
 
 $LOGGER "Done! Devtools utilities installation complete."

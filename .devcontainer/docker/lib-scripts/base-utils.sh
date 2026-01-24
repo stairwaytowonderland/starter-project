@@ -2,13 +2,13 @@
 
 set -e
 
-$LOGGER "Installing base utilities and dependencies..."
+LEVEL='*' $LOGGER "Installing base utilities and dependencies..."
 
 apt-get update
 
 export DEBIAN_FRONTEND=noninteractive
 
-PACKAGES_TO_INSTALL="$(
+PACKAGES_TO_INSTALL="${PACKAGES_TO_INSTALL% } $(
     cat << EOF
 openssh-client
 EOF
@@ -25,9 +25,9 @@ EOF
 fi
 
 # shellcheck disable=SC2086
-$LOGGER "Installing the following packages: "$PACKAGES_TO_INSTALL
+LEVEL='*' $LOGGER "Installing the following packages: ${PACKAGES_TO_INSTALL# }"
 
 # shellcheck disable=SC2086
-apt-get -y install --no-install-recommends $PACKAGES_TO_INSTALL
+apt-get -y install --no-install-recommends ${PACKAGES_TO_INSTALL# }
 
 $LOGGER "Done! Base utilities installation complete."

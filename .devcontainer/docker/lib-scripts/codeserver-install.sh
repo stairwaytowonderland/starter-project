@@ -2,25 +2,30 @@
 
 set -e
 
-$LOGGER "Installing code-server utilities..."
-
 VERSION="${CODESERVER_VERSION:-latest}"
+
+TOOL_LABEL="code-server"
+GITHUB_REPO="coder/code-server"
+DOWNLOAD_PREFIX="https://github.com/${GITHUB_REPO}/releases/download/v"
+
+LEVEL='*' $LOGGER "Installing $TOOL_LABEL utilities..."
+
 if [ "$VERSION" = "latest" ]; then
-    VERSION="$(curl -sSLf https://api.github.com/repos/coder/code-server/releases/latest \
+    VERSION="$(curl -sSLf https://api.github.com/repos/${GITHUB_REPO}/releases/latest \
         | jq -r .tag_name | sed 's/^v//')"
 fi
 
 # shellcheck disable=SC1091
 . /tmp/lib-scripts/install-helper.sh
 
-if __set_url_parts "coder/code-server" "$VERSION"; then
+if __set_url_parts "$GITHUB_REPO" "$VERSION" "$DOWNLOAD_PREFIX"; then
     build_url() {
-        url_prefix="https://github.com/coder/code-server/releases/download/v"
-        echo "${url_prefix}${DOWNLOAD_VERSION}/code-server-${DOWNLOAD_VERSION}-${DOWNLOAD_OS}-${DOWNLOAD_ARCH}.tar.gz"
+        # url_prefix="https://github.com/coder/code-server/releases/download/v"
+        echo "${DOWNLOAD_URL_PREFIX}${DOWNLOAD_VERSION}/code-server-${DOWNLOAD_VERSION}-${DOWNLOAD_OS}-${DOWNLOAD_ARCH}.tar.gz"
     }
     DOWNLOAD_URL="$(build_url)"
 else
-    $LOGGER "Failed to determine download parameters for code-server version $VERSION"
+    LEVEL='!' $LOGGER "Failed to determine download parameters for code-server version $VERSION"
     exit 1
 fi
 
@@ -28,7 +33,7 @@ INSTALL_PREFIX="$HOME/.local/lib"
 mkdir -p "$INSTALL_PREFIX" "$HOME/.local/bin"
 rm -rf "$INSTALL_PREFIX/code-server-$DOWNLOAD_VERSION"
 
-$LOGGER "Downloading code-server from $DOWNLOAD_URL ..."
+LEVEL='*' $LOGGER "Downloading $TOOL_LABEL $DOWNLOAD_VERSION..."
 if (
     __download_tar "$DOWNLOAD_URL" "$INSTALL_PREFIX"
 ); then
@@ -40,7 +45,8 @@ if (
     # update-alternatives --install "$HOME/.local/bin/code-server" code-server "$INSTALL_PREFIX/code-server-$DOWNLOAD_VERSION/bin/code-server" 1
 
 else
-    $LOGGER "Failed to download code-server from $DOWNLOAD_URL"
+    LEVEL='!' $LOGGER "Failed to download $TOOL_LABEL from $DOWNLOAD_URL"
+    exit 1
 fi
 
-$LOGGER "Done! code-server utilities installation complete."
+$LOGGER "Done! $TOOL_LABEL utilities installation complete."

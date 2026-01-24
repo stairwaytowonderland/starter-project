@@ -2,7 +2,7 @@
 
 set -e
 
-$LOGGER "Setting up code-server environment..."
+LEVEL='*' $LOGGER "Setting up code-server environment..."
 
 sed -i "s|\$LOGGER|$LOGGER|g" /usr/local/bin/start-code-server \
     && sed -i "s|\$PASSGEN|$PASSGEN|g" /usr/local/bin/start-code-server \

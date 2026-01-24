@@ -2,6 +2,8 @@
 
 VERSION="${VERSION:-latest}"
 
+export DEBIAN_FRONTEND=noninteractive
+
 __get_platform() {
     PLATFORM="$(uname -sm | tr '[:upper:]' '[:lower:]')"
     echo "$PLATFORM"
@@ -47,7 +49,7 @@ __get_arch() {
 
 install_packages() {
     # shellcheck disable=SC2086
-    $LOGGER "Installing the following packages: "$*
+    LEVEL='*' $LOGGER "Installing the following packages: "$*
     # shellcheck disable=SC2086,SC2048
     apt-get -y install --no-install-recommends $*
 }
@@ -59,8 +61,7 @@ update_and_install() {
 
 # Usage example for defining packages to install:
 #
-# [ -z "$PACKAGES_TO_INSTALL" ] || PACKAGES_TO_INSTALL="$PACKAGES_TO_INSTALL "
-# PACKAGES_TO_INSTALL="$(
+# PACKAGES_TO_INSTALL="${PACKAGES_TO_INSTALL% }$(
 #     cat << EOF
 # list
 # of
@@ -83,7 +84,7 @@ __get_version() {
     _version="${2:-latest}"
 
     if [ -z "$_github_repo" ]; then
-        LEVEL=error $LOGGER '(!)'" GitHub repository is required to fetch version (${_version}) from tags."
+        LEVEL='!' $LOGGER "GitHub repository is required to fetch version (${_version}) from tags."
         return 1
     fi
 
@@ -98,14 +99,14 @@ __get_version() {
         fi
         escaped_version_check="$(echo "${VERSION}" | sed 's/\./\\./g')"
         if [ -z "${VERSION}" ] || ! echo "${version_list}" | grep "^${escaped_version_check}$" > /dev/null 2>&1; then
-            LEVEL=error $LOGGER '(!)'" Invalid git version: ${VERSION}"
+            LEVEL='!' $LOGGER "Invalid git version: ${VERSION}"
             return 2
         fi
     fi
 
     # shellcheck disable=SC2015
     __check_semver "$VERSION" && echo "$VERSION" || {
-        LEVEL=error $LOGGER '(!)'" Version must be a semantic version (e.g., 1.2.3): ${VERSION}"
+        LEVEL='!' $LOGGER "Version must be a semantic version (e.g., 1.2.3): ${VERSION}"
         return 3
     }
 }
@@ -113,9 +114,19 @@ __get_version() {
 __set_url_parts() {
     _github_repo="${1-}"
     _version="${2-}"
-    # _version_prefix="${3-}"
 
-    DOWNLOAD_VERSION="$(__get_version "$_github_repo" "$_version")" || return $?
+    if [ $# -gt 3 ]; then
+        _version_prefix="${3-}"
+        _url_prefix="${4%"$_version_prefix"}"
+        DOWNLOAD_URL_PREFIX="${_url_prefix%/}"
+    else
+        _url_prefix="${3-}"
+        _version_prefix=""
+        DOWNLOAD_URL_PREFIX="${_url_prefix}"
+    fi
+
+    _download_version="$(__get_version "$_github_repo" "$_version")" || return $?
+    DOWNLOAD_VERSION="${_version_prefix}${_download_version#"$_version_prefix"}"
     DOWNLOAD_PLATFORM="$(uname -sm | tr '[:upper:]' '[:lower:]')"
     DOWNLOAD_OS="$(__get_os "$DOWNLOAD_PLATFORM")" || return $?
     DOWNLOAD_ARCH="$(__get_arch "$DOWNLOAD_PLATFORM")" || return $?
@@ -126,14 +137,14 @@ __download_tar() {
     INSTALL_PREFIX="${2-"/usr/local"}"
 
     mkdir -p "$INSTALL_PREFIX"
-    $LOGGER "Downloading from $DOWNLOAD_URL ..."
+    LEVEL='*' $LOGGER "Downloading from $DOWNLOAD_URL ..."
     (
         set -x
         curl -sSLf "$DOWNLOAD_URL" | tar -C "$INSTALL_PREFIX" -xzf -
     )
 }
 
-export DOWNLOAD_VERSION DOWNLOAD_PLATFORM DOWNLOAD_OS DOWNLOAD_ARCH
+export DOWNLOAD_VERSION DOWNLOAD_PLATFORM DOWNLOAD_OS DOWNLOAD_ARCH DOWNLOAD_URL_PREFIX
 
 # Usage example for downloading and installing from a tarball:
 #

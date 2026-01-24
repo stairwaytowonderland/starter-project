@@ -8,7 +8,7 @@ USE_PPA_IF_AVAILABLE="${USE_PPA_IF_AVAILABLE:-true}"
 
 install_packages() {
     # shellcheck disable=SC2086
-    $LOGGER "Installing the following packages: "$*
+    LEVEL='*' $LOGGER "Installing the following packages: "$*
     # shellcheck disable=SC2086,SC2048
     apt-get -y install --no-install-recommends $*
 }
@@ -18,7 +18,7 @@ update_and_install() {
     install_packages "$@"
 }
 
-$LOGGER "Installing devtools utilities and dependencies..."
+LEVEL='*' $LOGGER "Installing Python utilities..."
 
 apt-get update
 
@@ -29,7 +29,7 @@ if [ "$PYTHON_VERSION" = "system" ] \
 
     if [ "$PYTHON_VERSION" = "latest" ]; then
         if [ "$IMAGE_NAME" = "ubuntu" ] && [ "$USE_PPA_IF_AVAILABLE" = "true" ]; then
-            PACKAGES_TO_INSTALL="$(
+            PACKAGES_TO_INSTALL="${PACKAGES_TO_INSTALL% } $(
                 cat << EOF
 python3.14
 python3.14-venv
@@ -39,7 +39,7 @@ EOF
             )"
 
             add-apt-repository ppa:deadsnakes/ppa -y
-            update_and_install "$PACKAGES_TO_INSTALL"
+            update_and_install "${PACKAGES_TO_INSTALL# }"
 
             update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
             update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.14 2
@@ -60,4 +60,4 @@ EOF
     fi
 fi
 
-$LOGGER "Done! Devtools utilities installation complete."
+$LOGGER "Done! Python utilities installation complete."

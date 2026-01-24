@@ -8,7 +8,7 @@ GIT_VERSION="${GIT_VERSION:-latest}"
 USE_PPA_IF_AVAILABLE="${USE_PPA_IF_AVAILABLE:-true}"
 SOURCE_AS_FALLBACK="${SOURCE_AS_FALLBACK:-false}"
 
-$LOGGER "Installing GIT $GIT_VERSION ..."
+LEVEL='*' $LOGGER "Installing GIT..."
 
 apt-get update
 
@@ -31,7 +31,7 @@ get_version() {
             set -e
         fi
         if [ -z "${GIT_VERSION}" ] || ! echo "${version_list}" | grep "^${GIT_VERSION//./\\.}$" > /dev/null 2>&1; then
-            LEVEL=error $LOGGER "Invalid git version: ${GIT_VERSION}"
+            LEVEL='!' $LOGGER "Invalid git version: ${GIT_VERSION}"
             exit 1
         fi
     fi
@@ -45,7 +45,7 @@ git_download() {
     local git_url_mirror1="https://mirrors.edge.kernel.org/pub/software/scm/git/git-${git_version}.tar.gz"
     # shellcheck disable=SC2034  # Unused variables left for readability
     local git_url_mirror2="https://github.com/git/git/archive/v${git_version}.tar.gz"
-    $LOGGER "Downloading source for git version ${git_version}..."
+    LEVEL='*' $LOGGER "Downloading source for git version ${git_version}..."
     (
         set -x
         # curl -sSL -o "/tmp/${git_tar}" "${git_url}" | tar -xzC /tmp
@@ -56,7 +56,7 @@ git_download() {
 
 git_build() {
     local git_version="${1:-$GIT_VERSION}"
-    $LOGGER "Building git version ${git_version}..."
+    LEVEL='*' $LOGGER "Building git version ${git_version}..."
     # cd "/tmp/git-${git_version}"
     # ./configure --prefix=/usr/local
     # make all
@@ -115,7 +115,7 @@ git_install() {
 git_install "$GIT_VERSION"
 
 if ! type git > /dev/null 2>&1; then
-    LEVEL=error $LOGGER "GIT installation failed!"
+    LEVEL='!' $LOGGER "GIT installation failed!"
     exit 1
 fi
 

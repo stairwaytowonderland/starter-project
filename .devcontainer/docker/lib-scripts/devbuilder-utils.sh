@@ -2,10 +2,7 @@
 
 set -e
 
-# * Not currently a build arg but could be in future
-USE_PPA_IF_AVAILABLE="${USE_PPA_IF_AVAILABLE:-true}"
-
-$LOGGER "Installing devuser utilities and dependencies..."
+LEVEL='*' $LOGGER "Installing devuser utilities and dependencies..."
 
 apt-get update
 

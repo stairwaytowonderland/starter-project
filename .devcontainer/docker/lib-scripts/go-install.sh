@@ -2,13 +2,13 @@
 
 set -e
 
-$LOGGER "Installing Go utilities..."
+LEVEL='*' $LOGGER "Installing Go utilities..."
 
 apt-get update
 
 export DEBIAN_FRONTEND=noninteractive
 
-PACKAGES_TO_INSTALL="$(
+PACKAGES_TO_INSTALL="${PACKAGES_TO_INSTALL% } $(
         cat << EOF
 shfmt
 EOF
@@ -33,18 +33,19 @@ go_version="$(curl --silent https://go.dev/VERSION?m=text | xargs echo | awk '{p
 go_url="https://dl.google.com/go/${go_version}.${go_os}-${go_arch}.tar.gz"
 
 rm -rf /usr/local/go
-$LOGGER "Downloading Go from $go_url ..."
+LEVEL='*' $LOGGER "Downloading Go $go_version from $go_url ..."
 if (
     set -x
     curl -sSLf "$go_url" | tar -C /usr/local -xzf -
 ); then
     # export PATH="/usr/local/go/bin:$PATH"
     # shellcheck disable=SC2027,SC2086
-    $LOGGER "Installing "$PACKAGES_TO_INSTALL" via Go (os: $go_os, arch: $go_arch)..."
+    LEVEL='*' $LOGGER "Installing "${PACKAGES_TO_INSTALL# }" via Go (os: $go_os, arch: $go_arch)..."
     GOPATH=/usr/local /usr/local/go/bin/go install mvdan.cc/sh/v3/cmd/shfmt@latest
     rm -rf /usr/local/go
 else
-    $LOGGER "Failed to download Go from $go_url"
+    LEVEL='!' $LOGGER "Failed to download Go from $go_url"
+    exit 1
 fi
 
 $LOGGER "Done! Go utilities installation complete."

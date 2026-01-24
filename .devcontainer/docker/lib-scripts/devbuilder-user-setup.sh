@@ -5,7 +5,7 @@
 
 set -e
 
-$LOGGER "Setting up bashrc and profile for new users and root ..."
+LEVEL='*' $LOGGER "Setting up bashrc and profile for new users and root ..."
 
 cat << EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
 
@@ -47,7 +47,8 @@ fi
 EOF
 
 echo | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null \
-    && echo PATH="\$($FIXPATH)" | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null \
+    && echo PATH="\"\$($FIXPATH)\"" | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null \
+    && echo LOGGER="\"$LOGGER\"" | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null \
     && cat << EOF | tee -a /etc/skel/.profile /root/.profile > /dev/null
 
 # https://docs.brew.sh/Shell-Completion
@@ -68,7 +69,7 @@ EOF
 
 $LOGGER "Done! Bashrc and profile setup complete."
 
-$LOGGER "Creating non-root user '$USERNAME' ..."
+LEVEL='*' $LOGGER "Creating non-root user '$USERNAME' ..."
 
 # Create a new non-root user with sudo privileges
 groupadd --gid "$USER_GID" "$USERNAME" \

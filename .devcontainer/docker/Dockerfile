@@ -158,7 +158,7 @@ ARG DEFAULT_ROOT_PASS=$DEV
 # Export PYTHON_VERSION for convenience
 ENV PYTHON_VERSION=$PYTHON_VERSION
 # Update PATH here so that all shells contain the updated PATH
-ENV PATH="/home/$USERNAME/.local/bin:${PATH}"
+ENV PATH="/home/$USERNAME/.local/bin:$PATH"
 
 # Copy library scripts
 COPY --chmod=755 .devcontainer/docker/lib-scripts/devbuilder*.sh /tmp/lib-scripts/
@@ -267,7 +267,7 @@ FROM base AS devtools
 # (true/false; default: $DEFAULT_ROOT_PASS build argument)
 ENV RESET_ROOT_PASS=$DEFAULT_ROOT_PASS
 # Needed to properly reference target version of python3
-# ENV PATH="/home/linuxbrew/.linuxbrew/opt/python3/bin:${PATH}"
+# ENV PATH="/home/linuxbrew/.linuxbrew/opt/python3/bin:$PATH"
 
 # Copy library scripts
 COPY --chmod=755 .devcontainer/docker/lib-scripts/devtools-*.sh /tmp/lib-scripts/
@@ -278,12 +278,19 @@ USER root
 RUN /tmp/lib-scripts/devtools-utils.sh \
   && /tmp/lib-scripts/python-install.sh \
   # Cleanup
+  && apt-get -y autoremove \
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/* \
   && rm -rf /tmp/lib-scripts
 
 # Switch to non-root user
 USER $USERNAME
+# COPY --chmod=755 --chown=$USERNAME:$USERNAME .devcontainer/docker/lib-scripts/install-helper.sh /tmp/lib-scripts/
+# COPY --chmod=755 --chown=$USERNAME:$USERNAME .devcontainer/docker/lib-scripts/node-install.sh /tmp/lib-scripts/
+
+# # If Node.js was manually installed, set NODEJS_HOME and update PATH
+# ENV NODEJS_HOME=/home/$USERNAME/.local/lib/nodejs
+# ENV PATH="$NODEJS_HOME/bin:$PATH"
 
 # Install Python, pipx, Poetry, uv, and other dev tools.
 # Do nothing if PYTHON_VERSION is 'devcontainer' or matches the USERNAME.
@@ -312,10 +319,19 @@ RUN if type "$BREW" > /dev/null 2>&1; then \
     && $("$PIPX") install poetry \
     && $("$PIPX") install uv; \
   fi
+  # Manually install Node.js and npm
+  # && /tmp/lib-scripts/node-install.sh \
+  # Cleanup
+  # && rm -rf /tmp/lib-scripts
 
-USER root
-
-USER $USERNAME
+# USER root
+# # If Node.js was manually installed, set up alternatives
+# RUN if [ -r /tmp/alternatives ]; then \
+#     chmod +x /tmp/alternatives \
+#     && sh /tmp/alternatives \
+#     && rm -f /tmp/alternatives; \
+#   fi
+# USER $USERNAME
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 

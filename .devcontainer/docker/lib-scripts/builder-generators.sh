@@ -18,8 +18,23 @@ touch "$LOGGER" \
 LEVEL="\${LEVEL:-info}"
 
 log() {
-  local timestamp="\$(date +'%Y-%m-%d %H:%M:%S')"
-  printf "[%s] [%s] %s\n" "\$timestamp" "\$(echo \$LEVEL | tr '[:lower:]' '[:upper:]')" "\$*" >&2
+  timestamp="\$(date +'%Y-%m-%d %H:%M:%S')"
+  template="[%s] [%s] %s\n"
+
+  case "\$LEVEL" in
+    debug|info|warning|error) LEVEL=\$(echo \$LEVEL | tr '[:lower:]' '[:upper:]') ;;
+    \*)
+        LEVEL='*'
+        template="[%s] (%s) %s\n"
+        ;;
+    \!)
+        LEVEL='!'
+        template="[%s] (%s) Error! %s\n"
+        ;;
+    *) LEVEL="info" ;;
+  esac
+
+  printf "\$template" "\$timestamp" "\$LEVEL" "\$*" >&2
 }
 
 main() {
