@@ -390,15 +390,6 @@ RUN if $PIPX 2>/dev/null; then \
 
 FROM base AS codeserver-minimal
 
-ARG BIND_ADDR=0.0.0.0:13337
-ENV BIND_ADDR=$BIND_ADDR
-ENV DEBUG=false
-
-# Don't put CODE_SERVER_CONFIG in workspace directly to avoid issues with volume mounts
-ENV CODE_SERVER_WORKSPACE=$DEFAULT_WORKSPACE
-ENV CODE_SERVER_CONFIG=/home/$USERNAME/.config/code-server/config.yaml
-ENV CODE_SERVER_EXTENSIONS=$DEFAULT_WORKSPACE/.code-server/extensions/extensions.json
-
 # Copy library scripts
 COPY --chmod=755 .devcontainer/docker/lib-scripts/codeserver-utils.sh /tmp/lib-scripts/
 # Copy start-code-server script
@@ -420,9 +411,17 @@ RUN /tmp/lib-scripts/codeserver-utils.sh \
 #   && curl -fsSL https://code-server.dev/install.sh | sh \
 #   && $LOGGER "code-server installation complete."
 
+ARG BIND_ADDR=0.0.0.0:13337
+ENV BIND_ADDR=$BIND_ADDR
+ENV DEBUG=false
+
+# Don't put CODE_SERVER_CONFIG in workspace directly to avoid issues with volume mounts
+ENV CODE_SERVER_WORKSPACE=$DEFAULT_WORKSPACE
+ENV CODE_SERVER_CONFIG=/home/$USERNAME/.config/code-server/config.yaml
+ENV CODE_SERVER_EXTENSIONS=$DEFAULT_WORKSPACE/.code-server/extensions/extensions.json
+
 # If standalone download is false, use root to install the .deb package
 # If standalone download is true use $USERNAME to install the tar.gz package
-
 USER $USERNAME
 COPY --chmod=755 --chown=$USERNAME:$USERNAME .devcontainer/docker/lib-scripts/install-helper.sh /tmp/lib-scripts/
 COPY --chmod=755 --chown=$USERNAME:$USERNAME .devcontainer/docker/lib-scripts/codeserver-install.sh /tmp/lib-scripts/
@@ -435,11 +434,13 @@ RUN $LOGGER "Installing code-server..." \
 # USER $USERNAME
 WORKDIR $DEFAULT_WORKSPACE
 
-EXPOSE 13337
+# dockerfile-utils: ignore
+EXPOSE "${BIND_ADDR##*:}"
 
 # Health check
+# dockerfile-utils: ignore
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -fsSL http://${BIND_ADDR}/healthz || exit 1
+  CMD curl -fsSL "http://localhost:"${BIND_ADDR##*:}"/healthz" || exit 1
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
@@ -456,15 +457,6 @@ CMD ["/bin/sh", "-c", "start-code-server --config-only && set -x ; \
 
 FROM devtools AS codeserver
 
-ARG BIND_ADDR=0.0.0.0:13337
-ENV BIND_ADDR=$BIND_ADDR
-ENV DEBUG=false
-
-# Don't put CODE_SERVER_CONFIG in workspace directly to avoid issues with volume mounts
-ENV CODE_SERVER_WORKSPACE=$DEFAULT_WORKSPACE
-ENV CODE_SERVER_CONFIG=/home/$USERNAME/.config/code-server/config.yaml
-ENV CODE_SERVER_EXTENSIONS=$DEFAULT_WORKSPACE/.code-server/extensions/extensions.json
-
 # Copy library scripts
 COPY --chmod=755 .devcontainer/docker/lib-scripts/codeserver-utils.sh /tmp/lib-scripts/
 # Copy start-code-server script
@@ -486,9 +478,17 @@ RUN /tmp/lib-scripts/codeserver-utils.sh \
 #   && curl -fsSL https://code-server.dev/install.sh | sh \
 #   && $LOGGER "code-server installation complete."
 
+ARG BIND_ADDR=0.0.0.0:13337
+ENV BIND_ADDR=$BIND_ADDR
+ENV DEBUG=false
+
+# Don't put CODE_SERVER_CONFIG in workspace directly to avoid issues with volume mounts
+ENV CODE_SERVER_WORKSPACE=$DEFAULT_WORKSPACE
+ENV CODE_SERVER_CONFIG=/home/$USERNAME/.config/code-server/config.yaml
+ENV CODE_SERVER_EXTENSIONS=$DEFAULT_WORKSPACE/.code-server/extensions/extensions.json
+
 # If standalone download is false, use root to install the .deb package
 # If standalone download is true use $USERNAME to install the tar.gz package
-
 USER $USERNAME
 COPY --chmod=755 --chown=$USERNAME:$USERNAME .devcontainer/docker/lib-scripts/install-helper.sh /tmp/lib-scripts/
 COPY --chmod=755 --chown=$USERNAME:$USERNAME .devcontainer/docker/lib-scripts/codeserver-install.sh /tmp/lib-scripts/
@@ -503,11 +503,13 @@ WORKDIR $DEFAULT_WORKSPACE
 
 WORKDIR $DEFAULT_WORKSPACE
 
-EXPOSE 13337
+# dockerfile-utils: ignore
+EXPOSE "${BIND_ADDR##*:}"
 
 # Health check
+# dockerfile-utils: ignore
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -fsSL http://${BIND_ADDR}/healthz || exit 1
+  CMD curl -fsSL "http://localhost:"${BIND_ADDR##*:}"/healthz" || exit 1
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 

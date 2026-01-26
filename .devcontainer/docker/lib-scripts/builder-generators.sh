@@ -156,7 +156,7 @@ EOT
     if [ "\$qty" -gt 0 ] ; then
         count=0
         while [ \$count -lt "\$qty" ]; do
-            parse_args "\$@" | xargs echo
+            parse_args "\$@" | xargs -0 echo
             count=\$(( count + 1 ))
         done
     fi

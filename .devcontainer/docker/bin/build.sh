@@ -114,7 +114,7 @@ com+=("--build-arg" "VARIANT=${BASE_IMAGE_VARIANT}")
 if [ -n "$REMOTE_USER" ]; then
     com+=("--build-arg" "USERNAME=$REMOTE_USER")
 fi
-com+=("--build-arg" "PYTHON_VERSION=${PYTHON_VERSION:-latest}")
+# com+=("--build-arg" "PYTHON_VERSION=${PYTHON_VERSION:-latest}")
 com+=("--build-arg" "REPO_NAME=$REPO_NAME")
 com+=("--build-arg" "REPO_NAMESPACE=$REPO_NAMESPACE")
 com+=("--build-arg" "TIMEZONE=${TIMEZONE:-America/Chicago}")

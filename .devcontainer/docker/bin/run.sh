@@ -18,9 +18,10 @@ script_name="$0"
 script_dir="$(cd "$(dirname "$script_name")" && pwd)"
 # ---------------------------------------
 
-HOST_IP="${HOST_IP:-0.0.0.0}"
-HOST_PORT="${HOST_PORT:-13337}"
-CONTAINER_PORT="${CONTAINER_PORT:-13337}"
+CODESERVER_BIND_ADDR="${CODESERVER_BIND_ADDR:-0.0.0.0:13337}"
+CODESERVER_CONTAINER_PORT="${CODESERVER_CONTAINER_PORT:-${CODESERVER_BIND_ADDR##*:}}"
+CODESERVER_HOST_PORT="${CODESERVER_HOST_PORT:-$CODESERVER_CONTAINER_PORT}"
+CODESERVER_HOST_IP="${CODESERVER_HOST_IP:-${CODESERVER_BIND_ADDR%%:*}}"
 
 # Specify last argument as context if it's a directory
 last_arg="${*: -1}"
@@ -131,7 +132,7 @@ else
         com+=("-v" "$HOME/.gitconfig:/etc/gitconfig:ro")
     fi
     if echo "$DOCKER_TARGET" | grep -qE "^codeserver"; then
-        com+=("-p" "${HOST_IP}:${HOST_PORT}:${CONTAINER_PORT}")
+        com+=("-p" "${CODESERVER_HOST_IP}:${CODESERVER_HOST_PORT}:${CODESERVER_CONTAINER_PORT}")
     fi
 fi
 com+=("$docker_tag")
