@@ -32,8 +32,8 @@ ENV LC_ALL=C.UTF-8
 # Use the 'a-zA-Z0-9' form for a custom character set (or specify any characters, e.g. 'a-zA-Z0-9!@#$%^&*()')
 ARG DEFAULT_PASS_CHARSET='[:graph:]'
 ARG DEFAULT_PASS_LENGTH=32
-ENV CODESERVER_PASS_LENGTH=$DEFAULT_PASS_LENGTH
-ENV CODESERVER_PASS_CHARSET=$DEFAULT_PASS_CHARSET
+ENV DEFAULT_PASS_LENGTH=$DEFAULT_PASS_LENGTH
+ENV DEFAULT_PASS_CHARSET=$DEFAULT_PASS_CHARSET
 
 # Set environment variables to non-interactive (this prevents some prompts)
 ENV DEBIAN_FRONTEND=noninteractive

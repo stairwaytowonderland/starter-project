@@ -108,6 +108,9 @@ com+=("--label" "org.opencontainers.image.description=A simple Debian-based Dock
 com+=("--label" "org.opencontainers.image.licenses=MIT")
 com+=("--target" "$DOCKER_TARGET")
 com+=("-t" "$build_tag")
+
+com+=("--platform=linux/arm64,linux/amd64")
+
 # The `debian:bookworm-slim` image provides a minimal base for development containers
 com+=("--build-arg" "IMAGE_NAME=${BASE_IMAGE_NAME}")
 com+=("--build-arg" "VARIANT=${BASE_IMAGE_VARIANT}")

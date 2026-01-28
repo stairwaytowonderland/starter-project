@@ -71,8 +71,8 @@ touch "$PASSGEN" \
 # Output:
 #   Randomly generated password
 
-CODESERVER_PASS_LENGTH="\${CODESERVER_PASS_LENGTH:-$DEFAULT_PASS_LENGTH}"
-CODESERVER_PASS_CHARSET="\${CODESERVER_PASS_CHARSET:-$DEFAULT_PASS_CHARSET}"
+DEFAULT_PASS_LENGTH="\${DEFAULT_PASS_LENGTH:-$DEFAULT_PASS_LENGTH}"
+DEFAULT_PASS_CHARSET="\${DEFAULT_PASS_CHARSET:-$DEFAULT_PASS_CHARSET}"
 
 simple_pass() {
     # Does not guarantee character family requirements
@@ -80,14 +80,14 @@ simple_pass() {
     full_charset='[:graph:]'
     alpha_charset='[:alnum:]'
     custom_charset='0-9a-zA-Z!%^&.@\$*_:.,?-'
-    default_charset="\${CODESERVER_PASS_CHARSET:-\$full_charset}"
-    LC_ALL=C tr -dc "\${2:-\$default_charset}" < /dev/urandom | head -c"\${1:-\$CODESERVER_PASS_LENGTH}" || usage \$?
+    default_charset="\${DEFAULT_PASS_CHARSET:-\$full_charset}"
+    LC_ALL=C tr -dc "\${2:-\$default_charset}" < /dev/urandom | head -c"\${1:-\$DEFAULT_PASS_LENGTH}" || usage \$?
 }
 
 requirements_pass() {
     # Guarantees at least 2 characters from each character family: digits, lowercase, uppercase, special
 
-    max_string_len=\${1:-\$CODESERVER_PASS_LENGTH}
+    max_string_len=\${1:-\$DEFAULT_PASS_LENGTH}
     min_char_per_fam=\${2:-2}
 
     tr_num='0-9'
@@ -132,9 +132,11 @@ Positional args (alternative to options):
   charset|min_char_per_fam: Charset for simple mode or min chars for requirements mode
 
 Examples:
+  $PASSGEN 64
+  $PASSGEN -5 20
+  $PASSGEN 20 '0-9a-zA-Z!@#\\\$%^&*()'
   $PASSGEN -r -l 16
   $PASSGEN -s -l 32 -c 'a-zA-Z0-9!@#\\\$%^&*()'
-  $PASSGEN 20 '0-9a-zA-Z!@#\\\$%^&*()'
   $PASSGEN -5 -r -l 20
   $PASSGEN --simple 12 'a-zA-Z0-9'
   $PASSGEN --requirements 16 3
