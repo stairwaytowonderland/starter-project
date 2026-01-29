@@ -109,7 +109,11 @@ com+=("--label" "org.opencontainers.image.licenses=MIT")
 com+=("--target" "$DOCKER_TARGET")
 com+=("-t" "$build_tag")
 
-com+=("--platform=linux/arm64,linux/amd64")
+if [ "${BASE_IMAGE_NAME}" = "ubuntu" ]; then
+    com+=("--platform=linux/arm64,linux/amd64")
+elif [ "${BASE_IMAGE_NAME}" = "debian" ]; then
+    com+=("--platform=linux/arm64")
+fi
 
 # The `debian:bookworm-slim` image provides a minimal base for development containers
 com+=("--build-arg" "IMAGE_NAME=${BASE_IMAGE_NAME}")
