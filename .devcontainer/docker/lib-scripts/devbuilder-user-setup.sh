@@ -67,7 +67,7 @@ then
 fi
 EOF
 
-$LOGGER "Done! Bashrc and profile setup complete."
+LEVEL='√' $LOGGER "Done! Bashrc and profile setup complete."
 
 LEVEL='*' $LOGGER "Creating non-root user '$USERNAME' ..."
 
@@ -82,7 +82,7 @@ mkdir -p "/home/$USERNAME/.ssh" \
     && chown -R "$USERNAME:$USERNAME" "/home/$USERNAME/.ssh" \
     && chmod 700 "/home/$USERNAME/.ssh"
 
-$LOGGER "Done! User '$USERNAME' created successfully."
+LEVEL='√' $LOGGER "Done! User '$USERNAME' created successfully."
 
 # Set default password for root user to 'docker'
 # Only for development purposes; password can be changed at runtime

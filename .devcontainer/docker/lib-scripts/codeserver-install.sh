@@ -11,7 +11,7 @@ GITHUB_REPO="coder/code-server"
 DOWNLOAD_PREFIX="https://github.com/${GITHUB_REPO}/releases/download/v"
 DOWNLOAD_STANDALONE="${DOWNLOAD_STANDALONE:-false}"
 
-LEVEL='*' $LOGGER "Installing $TOOL_LABEL utilities..."
+LEVEL='ƒ' $LOGGER "Installing $TOOL_LABEL utilities..."
 
 if [ "$VERSION" = "latest" ]; then
     VERSION="$(curl -sSLf https://api.github.com/repos/${GITHUB_REPO}/releases/latest \
@@ -56,4 +56,4 @@ else
     exit 1
 fi
 
-$LOGGER "Done! $TOOL_LABEL utilities installation complete."
+LEVEL='√' $LOGGER "Done! $TOOL_LABEL utilities installation complete."

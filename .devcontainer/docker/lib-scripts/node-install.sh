@@ -13,7 +13,7 @@ TOOL_LABEL="Node.js"
 GITHUB_REPO="nodejs/node"
 DOWNLOAD_PREFIX="https://nodejs.org/dist/v"
 
-LEVEL='*' $LOGGER "Installing $TOOL_LABEL..."
+LEVEL='ƒ' $LOGGER "Installing $TOOL_LABEL..."
 
 if [ "$VERSION" = "latest" ] || [ "$VERSION" = "lts" ] || [ "$VERSION" = "current" ]; then
     VERSION="$(curl -sSLf https://api.github.com/repos/$GITHUB_REPO/releases/latest \
@@ -60,7 +60,11 @@ if (
     # ln -s "$NODEJS_HOME/bin/node" "$HOME/.local/bin/node"
     cat > /tmp/node-install << EOF
 #!/bin/sh
-set -ex
+set -e
+
+LEVEL='*' $LOGGER "Setting up alternatives for Node.js $DOWNLOAD_VERSION..."
+
+set -x
 
 NODEPATH="\${NODEPATH:-$NODEPATH}"
 NODEJS_HOME="\${NODEJS_HOME:-$NODEJS_HOME}"
@@ -69,7 +73,6 @@ mkdir -p "\$(dirname "\$NODEJS_HOME")"
 ln -s "\$NODEPATH/node-$DOWNLOAD_VERSION" "\$NODEJS_HOME"
 chown -R $USERNAME:$USERNAME "\$NODEJS_HOME"
 
-LEVEL='*' $LOGGER "Setting up alternatives for Node.js $DOWNLOAD_VERSION..."
 node="\$NODEPATH/node-$DOWNLOAD_VERSION/bin/node"
 [ ! -L "\$node" ] || node="\$(readlink -f \$node)"
 update-alternatives --install "\$NODEJS_HOME/bin/node" node "\$node" 1
@@ -86,4 +89,4 @@ else
     exit 1
 fi
 
-$LOGGER "Done! $TOOL_LABEL installation complete."
+LEVEL='√' $LOGGER "Done! $TOOL_LABEL installation complete."

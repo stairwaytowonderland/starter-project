@@ -2,7 +2,7 @@
 
 set -e
 
-LEVEL='*' $LOGGER "Installing common utilities and dependencies..."
+LEVEL='ƒ' $LOGGER "Installing common utilities and dependencies..."
 
 # shellcheck disable=SC1091
 . /helpers/install-helper.sh
@@ -27,4 +27,4 @@ EOF
 
 update_and_install "${PACKAGES_TO_INSTALL# }"
 
-$LOGGER "Done! Common utilities installation complete."
+LEVEL='√' $LOGGER "Done! Common utilities installation complete."

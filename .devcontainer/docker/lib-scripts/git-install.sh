@@ -10,7 +10,7 @@ SOURCE_AS_FALLBACK="${SOURCE_AS_FALLBACK:-false}"
 
 export DEBIAN_FRONTEND=noninteractive
 
-LEVEL='*' $LOGGER "Installing GIT..."
+LEVEL='ƒ' $LOGGER "Installing GIT..."
 
 apt-get update
 
@@ -78,7 +78,7 @@ git_install() {
             add-apt-repository ppa:git-core/ppa \
                 && apt-get update \
                 && apt-get -y install --no-install-recommends git
-        $LOGGER "Done! GIT installation from PPA complete!"
+        LEVEL='√' $LOGGER "Done! GIT installation from PPA complete!"
     else
         if [ "${SOURCE_AS_FALLBACK}" = "true" ]; then
             # Remove any existing git installation
@@ -96,7 +96,7 @@ git_install() {
             git_build
             rm -f "/tmp/git-${GIT_VERSION}.tar.gz"
             rm -rf "/tmp/git-${GIT_VERSION}"
-            $LOGGER "Done! GIT installation from source complete!"
+            LEVEL='√' $LOGGER "Done! GIT installation from source complete!"
 
             # Remove build dependencies
             apt-get -y remove \
@@ -108,7 +108,7 @@ git_install() {
 
     if ! type git > /dev/null 2>&1; then
         apt-get -y install --no-install-recommends git
-        $LOGGER "Done! GIT installation from apt complete!"
+        LEVEL='√' $LOGGER "Done! GIT installation from apt complete!"
     fi
 }
 

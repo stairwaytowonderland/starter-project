@@ -2,7 +2,7 @@
 
 set -e
 
-LEVEL='*' $LOGGER "Installing Go utilities..."
+LEVEL='ƒ' $LOGGER "Installing Go utilities..."
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -40,7 +40,7 @@ if (
 ); then
     # export PATH="/usr/local/go/bin:$PATH"
     # shellcheck disable=SC2027,SC2086
-    LEVEL='*' $LOGGER "Installing "${PACKAGES_TO_INSTALL# }" via Go (os: $go_os, arch: $go_arch)..."
+    LEVEL='ƒ' $LOGGER "Installing "${PACKAGES_TO_INSTALL# }" via Go (os: $go_os, arch: $go_arch)..."
     GOPATH=/usr/local /usr/local/go/bin/go install mvdan.cc/sh/v3/cmd/shfmt@latest
     rm -rf /usr/local/go
 else
@@ -48,4 +48,4 @@ else
     exit 1
 fi
 
-$LOGGER "Done! Go utilities installation complete."
+LEVEL='√' $LOGGER "Done! Go utilities installation complete."

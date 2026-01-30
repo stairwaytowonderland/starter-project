@@ -19,4 +19,4 @@ EOF
 
 update_and_install "${PACKAGES_TO_INSTALL# }"
 
-$LOGGER "Done! code-server environment setup complete."
+LEVEL='√' $LOGGER "Done! code-server environment setup complete."

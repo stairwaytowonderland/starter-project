@@ -2,7 +2,7 @@
 
 set -e
 
-LEVEL='*' $LOGGER "Installing devuser utilities and dependencies..."
+LEVEL='ƒ' $LOGGER "Installing devuser utilities and dependencies..."
 
 # shellcheck disable=SC1091
 . /helpers/install-helper.sh
@@ -29,4 +29,4 @@ EOF
 
 install_packages --install-recommends "${PACKAGES_TO_INSTALL# }"
 
-$LOGGER "Done! Devuser utilities installation complete."
+LEVEL='√' $LOGGER "Done! Devuser utilities installation complete."

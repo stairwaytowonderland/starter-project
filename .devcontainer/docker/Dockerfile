@@ -32,37 +32,38 @@ COPY --chmod=755 <<EOF $LOGGER
 #   Logs message with timestamp and log level (default: info)
 
 LEVEL="\${LEVEL:-info}"
+QUIET="\${QUIET:-false}"
 
-log() {
+__log() {
   timestamp="\$(date +'%Y-%m-%d %H:%M:%S')"
   template="[%s] [%s] %s"
 
   case "\$LEVEL" in
-    debug|info|warning|error) LEVEL="\$(echo "\$LEVEL" | tr '[:lower:]' '[:upper:]')" ;;
-    \*)
-        LEVEL="*"
-        template="[%s] (%s) %s"
-        ;;
+    debug|info|warning|error)
+      LEVEL="\$(echo "\$LEVEL" | tr '[:lower:]' '[:upper:]')"
+      ;;
+    \*|\√|\ƒ)
+      template="[%s] (%s) %s"
+      ;;
     \!)
-        LEVEL="!"
-        template="[%s] (%s) Error! %s"
-        ;;
+      template="[%s] (%s) Error! %s"
+      ;;
     *) LEVEL="info" ;;
   esac
 
   printf "\${template}\\n" "\${timestamp}" "\${LEVEL}" "\$*" >&2
 }
 
-main() {
+__logger() {
   if [ "\$#" -lt 1 ] ; then
-    LEVEL=error log "Usage: [LEVEL=<level>] $LOGGER <message>"
+    LEVEL=error __log "Usage: [LEVEL=<level>] $LOGGER <message>"
     exit 1
   fi
   # Log the message
-  log "\$@"
+  __log "\$@"
 }
 
-main "\$@"
+[ "\$QUIET" = "true" ] || __logger "\$@"
 EOF
 
 COPY --chmod=755 <<EOF $PASSGEN

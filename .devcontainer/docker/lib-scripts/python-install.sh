@@ -9,7 +9,7 @@ USE_PPA_IF_AVAILABLE="${USE_PPA_IF_AVAILABLE:-true}"
 # shellcheck disable=SC1091
 . /helpers/install-helper.sh
 
-LEVEL='*' $LOGGER "Installing Python utilities..."
+LEVEL='ƒ' $LOGGER "Installing Python utilities..."
 
 if [ "$PYTHON_VERSION" = "system" ] \
     || { ! type "$BREW" > /dev/null 2>&1 && [ "$PYTHON_VERSION" = "latest" ]; }; then
@@ -47,4 +47,4 @@ EOF
     fi
 fi
 
-$LOGGER "Done! Python utilities installation complete."
+LEVEL='√' $LOGGER "Done! Python utilities installation complete."

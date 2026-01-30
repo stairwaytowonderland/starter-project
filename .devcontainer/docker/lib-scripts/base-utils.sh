@@ -2,7 +2,7 @@
 
 set -e
 
-LEVEL='*' $LOGGER "Installing base utilities and dependencies..."
+LEVEL='ƒ' $LOGGER "Installing base utilities and dependencies..."
 
 # shellcheck disable=SC1091
 . /helpers/install-helper.sh
@@ -26,4 +26,4 @@ fi
 # shellcheck disable=SC2086
 update_and_install "${PACKAGES_TO_INSTALL# }"
 
-$LOGGER "Done! Base utilities installation complete."
+LEVEL='√' $LOGGER "Done! Base utilities installation complete."

@@ -49,7 +49,7 @@ __get_arch() {
 
 install_packages() {
     # shellcheck disable=SC2086
-    LEVEL='*' $LOGGER "Installing the following packages: "$*
+    LEVEL='ƒ' $LOGGER "Installing the following packages: "$*
     # shellcheck disable=SC2086,SC2048
     apt-get -y install --no-install-recommends $*
 }

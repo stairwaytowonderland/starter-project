@@ -4,7 +4,7 @@
 
 set -e
 
-LEVEL='*' $LOGGER "Installing devtools utilities and dependencies..."
+LEVEL='ƒ' $LOGGER "Installing devtools utilities and dependencies..."
 
 # shellcheck disable=SC1091
 . /helpers/install-helper.sh
@@ -55,4 +55,4 @@ EOF
     update_and_install "${PACKAGES_TO_INSTALL# }"
 fi
 
-$LOGGER "Done! Devtools utilities installation complete."
+LEVEL='√' $LOGGER "Done! Devtools utilities installation complete."
