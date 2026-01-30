@@ -58,10 +58,11 @@ fi
 
 BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-ubuntu}"
 BASE_IMAGE_VARIANT="${BASE_IMAGE_VARIANT:-latest}"
+DEFAULT_PLATFORM="linux/$(uname -m)"
 
 # Default repository info (must be provided as environment variables or build args)
-REPO_NAME="${REPO_NAME-}"
-REPO_NAMESPACE="${REPO_NAMESPACE-}"
+REPO_NAME="${REPO_NAME:-docker}"
+REPO_NAMESPACE="${REPO_NAMESPACE:-docker}"
 
 # Determine Docker context
 if [ -d "$last_arg" ]; then
@@ -116,25 +117,34 @@ fi
 #     local IFS=","
 #     echo "${temp_arr[*]}"
 # }
-# # Define the array being set by dedupe so IDE is aware of it
 # build_platforms="$(dedupe "${PLATFORM:-linux/amd64,linux/arm64}")"
 # # Split on comma to create array
 # IFS="," read -r -a platforms <<< "${build_platforms}"
+
+zoneinfo() {
+    echo "(+) Determining timezone..." >&2
+    local DEFAULT_TIMEZONE=UTC
+    [ -n "${TIMEZONE-}" ] \
+        || DEFAULT_TIMEZONE=$(
+            set -eox pipefail
+            readlink /etc/localtime 2> /dev/null | grep zoneinfo | sed 's|.*/zoneinfo/||' \
+                || echo UTC
+        )
+    tz="${TIMEZONE:-$DEFAULT_TIMEZONE}"
+    echo "$tz"
+    echo "(∞) Timezone determined: $tz" >&2
+    echo -e "\033[2m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\033[0m" >&2
+}
 
 echo "(*) Building Docker image for $DOCKER_TARGET..." >&2
 echo "(*) Dockerfile path: $dockerfile_path" >&2
 echo "(*) Docker context: $BUILD_CONTEXT" >&2
 com=(docker build)
 com+=("-f" "$dockerfile_path")
-com+=("--label" "org.opencontainers.image.build_tag=$build_tag")
-# com+=("--label" "org.opencontainers.image.ref.name=$build_tag")
-# com+=("--label" "org.opencontainers.image.title=$REPO_NAME - $DOCKER_TARGET - $BASE_IMAGE_NAME - $BASE_IMAGE_VARIANT")
-# com+=("--label" "org.opencontainers.image.source=https://github.com/$REPO_NAMESPACE/$REPO_NAME")
-# com+=("--label" "org.opencontainers.image.description=A simple Debian-based Docker image with essential development tools and Homebrew.")
-# com+=("--label" "org.opencontainers.image.licenses=MIT")
+com+=("--label" "org.opencontainers.image.ref.name=$build_tag")
 com+=("--target" "$DOCKER_TARGET")
 com+=("-t" "$build_tag")
-com+=("--platform=${PLATFORM:-linux/amd64,linux/arm64}")
+com+=("--platform=${PLATFORM:-$DEFAULT_PLATFORM}")
 # The `debian:bookworm-slim` image provides a minimal base for development containers
 com+=("--build-arg" "IMAGE_NAME=${BASE_IMAGE_NAME}")
 com+=("--build-arg" "VARIANT=${BASE_IMAGE_VARIANT}")
@@ -142,9 +152,7 @@ if [ -n "$REMOTE_USER" ]; then
     com+=("--build-arg" "USERNAME=$REMOTE_USER")
 fi
 # com+=("--build-arg" "PYTHON_VERSION=${PYTHON_VERSION:-latest}")
-com+=("--build-arg" "REPO_NAME=$REPO_NAME")
-com+=("--build-arg" "REPO_NAMESPACE=$REPO_NAMESPACE")
-com+=("--build-arg" "TIMEZONE=${TIMEZONE:-America/Chicago}")
+com+=("--build-arg" "TIMEZONE=$(zoneinfo)")
 com+=("--build-arg" "DEV=${DEV:-false}")
 for arg in "$@"; do
     if [ "$arg" != "$BUILD_CONTEXT" ]; then
@@ -157,5 +165,5 @@ set -- "${com[@]}"
 . "$script_dir/exec-com.sh" "$@"
 
 echo "(√) Done! Docker image build complete." >&2
-echo "________________________________________" >&2
+echo "_______________________________________" >&2
 echo >&2

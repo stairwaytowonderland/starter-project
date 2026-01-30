@@ -32,10 +32,10 @@ load_env() {
     local from_script="${1:-false}"
 
     if [ -d "${1-}" ]; then
-        echo "(*) Found .env file in directory '${1}'" >&2
+        echo "(+) Found .env file in directory '${1}'" >&2
         env_file="${1}/.env"
     else
-        echo "(*) Using default .env file path '${default_env_file}'" >&2
+        echo "(+) Using default .env file path '${default_env_file}'" >&2
         if [ "$from_script" = "true" ]; then
             env_file="$default_env_file"
         fi

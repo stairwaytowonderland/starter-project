@@ -207,14 +207,14 @@ publish.sh <image-name[:build_target]> [github-username] [image-version]
 **Arguments:**
 
 - `image-name[:build_target]` - Image name with optional build target (required)
-- `github-username` - GitHub username (required, can use `GITHUB_USER` env var)
+- `github-username` - GitHub username (required, can use `REGISTRY_USER` env var)
 - `image-version` - Version tag for the image (default: `latest`)
 
 **Environment Variables:**
 
 - `IMAGE_NAME` - Override image name
 - `DOCKER_TARGET` - Override build target (default: `devcontainer`)
-- `GITHUB_USER` - GitHub username (alternative to argument)
+- `REGISTRY_USER` - GitHub username (alternative to argument)
 - `IMAGE_VERSION` - Override version tag
 - `CR_PAT` - GitHub Personal Access Token (required)
 
@@ -233,7 +233,7 @@ CR_PAT=<your-github-token> ./.devcontainer/docker/bin/publish.sh \
     latest
 
 # Using only environment variables
-GITHUB_USER=<your-github-user> \
+REGISTRY_USER=<your-github-user> \
 CR_PAT=<your-github-token> \
 IMAGE_NAME=starter-project \
 ./.devcontainer/docker/bin/publish.sh

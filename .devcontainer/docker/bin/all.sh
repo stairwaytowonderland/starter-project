@@ -49,20 +49,20 @@ main() {
             && all_commands="$all_commands && $cmd" \
             || all_commands="$cmd"
     done << EOF
-$BUILD_CONTEXT/$bin_dir/build.sh $REPO_NAME:filez $REMOTE_USER $* $BUILD_CONTEXT
-$BUILD_CONTEXT/$bin_dir/build.sh $REPO_NAME:builder $REMOTE_USER $* $BUILD_CONTEXT
-$BUILD_CONTEXT/$bin_dir/build.sh $REPO_NAME $REMOTE_USER --build-arg PYTHON_VERSION=devcontainer --build-arg PRE_COMMIT_ENABLED=true $* $BUILD_CONTEXT
-$BUILD_CONTEXT/$bin_dir/build.sh $REPO_NAME:devtools $REMOTE_USER --build-arg DEV_PARENT_IMAGE=brewuser --build-arg PYTHON_VERSION=latest $* $BUILD_CONTEXT
-$BUILD_CONTEXT/$bin_dir/build.sh $REPO_NAME:cloudtools $REMOTE_USER --build-arg PYTHON_VERSION=devcontainer $* $BUILD_CONTEXT
-$BUILD_CONTEXT/$bin_dir/build.sh $REPO_NAME:codeserver $REMOTE_USER --build-arg BIND_ADDR=$CODESERVER_BIND_ADDR --build-arg PYTHON_VERSION=latest --build-arg DEFAULT_PASS_CHARSET='a-zA-Z0-9' $* $BUILD_CONTEXT
-$BUILD_CONTEXT/$bin_dir/build.sh $REPO_NAME:codeserver-minimal $REMOTE_USER --build-arg BIND_ADDR=$CODESERVER_BIND_ADDR --build-arg PYTHON_VERSION=system --build-arg DEFAULT_PASS_CHARSET='a-zA-Z0-9' $* $BUILD_CONTEXT
-$BUILD_CONTEXT/$bin_dir/publish.sh $REPO_NAME:codeserver-minimal $REPO_NAMESPACE
-$BUILD_CONTEXT/$bin_dir/publish.sh $REPO_NAME:codeserver $REPO_NAMESPACE
-$BUILD_CONTEXT/$bin_dir/publish.sh $REPO_NAME:cloudtools $REPO_NAMESPACE
-$BUILD_CONTEXT/$bin_dir/publish.sh $REPO_NAME:devtools $REPO_NAMESPACE
-$BUILD_CONTEXT/$bin_dir/publish.sh $REPO_NAME:builder $REPO_NAMESPACE
-$BUILD_CONTEXT/$bin_dir/publish.sh $REPO_NAME:filez $REPO_NAMESPACE
-$BUILD_CONTEXT/$bin_dir/publish.sh $REPO_NAME $REPO_NAMESPACE
+TIME_MSG_LABEL= TIME_MSG_PREFIX= $BUILD_CONTEXT/$bin_dir/build.sh $REPO_NAME:filez $REMOTE_USER $* $BUILD_CONTEXT
+TIME_MSG_LABEL= TIME_MSG_PREFIX= $BUILD_CONTEXT/$bin_dir/build.sh $REPO_NAME:builder $REMOTE_USER $* $BUILD_CONTEXT
+TIME_MSG_LABEL= TIME_MSG_PREFIX= $BUILD_CONTEXT/$bin_dir/build.sh $REPO_NAME $REMOTE_USER --build-arg PYTHON_VERSION=devcontainer --build-arg PRE_COMMIT_ENABLED=true $* $BUILD_CONTEXT
+TIME_MSG_LABEL= TIME_MSG_PREFIX= $BUILD_CONTEXT/$bin_dir/build.sh $REPO_NAME:devtools $REMOTE_USER --build-arg DEV_PARENT_IMAGE=brewuser --build-arg PYTHON_VERSION=latest $* $BUILD_CONTEXT
+TIME_MSG_LABEL= TIME_MSG_PREFIX= $BUILD_CONTEXT/$bin_dir/build.sh $REPO_NAME:cloudtools $REMOTE_USER --build-arg PYTHON_VERSION=devcontainer $* $BUILD_CONTEXT
+TIME_MSG_LABEL= TIME_MSG_PREFIX= $BUILD_CONTEXT/$bin_dir/build.sh $REPO_NAME:codeserver $REMOTE_USER --build-arg BIND_ADDR=$CODESERVER_BIND_ADDR --build-arg PYTHON_VERSION=latest --build-arg DEFAULT_PASS_CHARSET='a-zA-Z0-9' $* $BUILD_CONTEXT
+TIME_MSG_LABEL= TIME_MSG_PREFIX= $BUILD_CONTEXT/$bin_dir/build.sh $REPO_NAME:codeserver-minimal $REMOTE_USER --build-arg BIND_ADDR=$CODESERVER_BIND_ADDR --build-arg PYTHON_VERSION=system --build-arg DEFAULT_PASS_CHARSET='a-zA-Z0-9' $* $BUILD_CONTEXT
+TIME_MSG_LABEL= TIME_MSG_PREFIX= $BUILD_CONTEXT/$bin_dir/publish.sh $REPO_NAME:codeserver-minimal $REPO_NAMESPACE
+TIME_MSG_LABEL= TIME_MSG_PREFIX= $BUILD_CONTEXT/$bin_dir/publish.sh $REPO_NAME:codeserver $REPO_NAMESPACE
+TIME_MSG_LABEL= TIME_MSG_PREFIX= $BUILD_CONTEXT/$bin_dir/publish.sh $REPO_NAME:cloudtools $REPO_NAMESPACE
+TIME_MSG_LABEL= TIME_MSG_PREFIX= $BUILD_CONTEXT/$bin_dir/publish.sh $REPO_NAME:devtools $REPO_NAMESPACE
+TIME_MSG_LABEL= TIME_MSG_PREFIX= $BUILD_CONTEXT/$bin_dir/publish.sh $REPO_NAME:builder $REPO_NAMESPACE
+TIME_MSG_LABEL= TIME_MSG_PREFIX= $BUILD_CONTEXT/$bin_dir/publish.sh $REPO_NAME:filez $REPO_NAMESPACE
+TIME_MSG_LABEL= TIME_MSG_PREFIX= $BUILD_CONTEXT/$bin_dir/publish.sh $REPO_NAME $REPO_NAMESPACE
 EOF
 
     "$script_dir/exec-com.sh" sh -c "$all_commands"
@@ -74,4 +74,8 @@ for arg in "$@"; do
     fi
 done
 
-main "${com[@]}"
+TIME_MSG_LABEL="==> " TIME_MSG_PREFIX="TOTAL time" main "${com[@]}"
+
+echo "(√) Done! All Docker images built and published." >&2
+echo "_______________________________________" >&2
+echo >&2
