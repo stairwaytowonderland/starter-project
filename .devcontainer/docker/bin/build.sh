@@ -60,10 +60,6 @@ BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-ubuntu}"
 BASE_IMAGE_VARIANT="${BASE_IMAGE_VARIANT:-latest}"
 DEFAULT_PLATFORM="linux/$(uname -m)"
 
-# Default repository info (must be provided as environment variables or build args)
-REPO_NAME="${REPO_NAME:-docker}"
-REPO_NAMESPACE="${REPO_NAMESPACE:-docker}"
-
 # Determine Docker context
 if [ -d "$last_arg" ]; then
     BUILD_CONTEXT="$last_arg"
@@ -165,5 +161,5 @@ set -- "${com[@]}"
 . "$script_dir/exec-com.sh" "$@"
 
 echo "(√) Done! Docker image build complete." >&2
-echo "_______________________________________" >&2
+# echo "_______________________________________" >&2
 echo >&2

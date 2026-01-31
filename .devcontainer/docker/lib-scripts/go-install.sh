@@ -44,7 +44,7 @@ if (
     GOPATH=/usr/local /usr/local/go/bin/go install mvdan.cc/sh/v3/cmd/shfmt@latest
     rm -rf /usr/local/go
 else
-    LEVEL='!' $LOGGER "Failed to download Go from $go_url"
+    LEVEL='error' $LOGGER "Failed to download Go from $go_url"
     exit 1
 fi
 

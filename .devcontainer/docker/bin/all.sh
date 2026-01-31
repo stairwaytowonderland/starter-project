@@ -36,6 +36,12 @@ fi
 
 REMOTE_USER="${REMOTE_USER:-vscode}"
 
+CODESERVER_BIND_ADDR="${CODESERVER_BIND_ADDR:-0.0.0.0:13337}"
+CODESERVER_CONTAINER_PORT="${CODESERVER_CONTAINER_PORT:-${CODESERVER_BIND_ADDR##*:}}"
+CODESERVER_HOST_IP="${CODESERVER_HOST_IP:-${CODESERVER_BIND_ADDR%%:*}}"
+# Override CODESERVER_BIND_ADDR to ensure it uses the correct ip and port
+CODESERVER_BIND_ADDR="${CODESERVER_HOST_IP}:${CODESERVER_CONTAINER_PORT}"
+
 REPO_NAME="${REPO_NAME-}"
 REPO_NAMESPACE="${REPO_NAMESPACE-}"
 bin_dir=".devcontainer/docker/bin"
@@ -77,5 +83,5 @@ done
 TIME_MSG_LABEL="==> " TIME_MSG_PREFIX="TOTAL time" main "${com[@]}"
 
 echo "(√) Done! All Docker images built and published." >&2
-echo "_______________________________________" >&2
+# echo "_______________________________________" >&2
 echo >&2

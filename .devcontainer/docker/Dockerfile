@@ -39,16 +39,19 @@ __log() {
   template="[%s] [%s] %s"
 
   case "\$LEVEL" in
-    debug|info|warning|error)
+    \\*|\\√|\\ƒ) ;;
+    debug|info|warn|warning|error)
       LEVEL="\$(echo "\$LEVEL" | tr '[:lower:]' '[:upper:]')"
       ;;
-    \*|\√|\ƒ)
-      template="[%s] (%s) %s"
+    \\*\\*)
+      LEVEL="INFO"
+      template="[%s] [%s] ** %s"
       ;;
-    \!)
-      template="[%s] (%s) Error! %s"
+    \\!|\\¡)
+      LEVEL="WARNING"
+      template="[%s] [%s] !! %s"
       ;;
-    *) LEVEL="info" ;;
+    *) LEVEL="INFO" ;;
   esac
 
   printf "\${template}\\n" "\${timestamp}" "\${LEVEL}" "\$*" >&2
@@ -169,7 +172,7 @@ parse_args() {
                     -l|--length) length="\$2"; shift 2 ;;
                     -c|--charset) charset="\$2"; shift 2 ;;
                     -m|--min-char-per-fam)
-                        LEVEL='!' $LOGGER "-m|--min-char-per-fam is not valid with -s|--simple mode"
+                        LEVEL='error' $LOGGER "-m|--min-char-per-fam is not valid with -s|--simple mode"
                         usage 1
                         ;;
                     *) break ;;
@@ -185,7 +188,7 @@ parse_args() {
                     -l|--length) length="\$2"; shift 2 ;;
                     -m|--min-char-per-fam) min_char="\$2"; shift 2 ;;
                     -c|--charset)
-                        LEVEL='!' $LOGGER "-c|--charset is not valid with -r|--requirements mode"
+                        LEVEL='error' $LOGGER "-c|--charset is not valid with -r|--requirements mode"
                         usage 1
                         ;;
                     *) break ;;
@@ -502,7 +505,7 @@ cleanup() {
   code=\${1:-\$?}
   [ "\$code" -eq 0 ] \\
     && $LOGGER "** Exiting cleanly. Bye!" \\
-    || $LOGGER "** Exiting with code \${code}. Bye!"
+    || LEVEL='!' $LOGGER "Exiting with code \${code}. Bye!"
 }
 
 handle_int() {
@@ -525,14 +528,26 @@ case "\$1" in
     ;;
 esac
 
-echo q \\
-  | watch -n 5 -e '[ "\$(cat '"\$healthcheck"')x" != "x" ] && cat '"\$healthcheck"' || false' >"\$out" 2>&1 \\
-  || handle_int
+handle_watch() {
+  watch -n 5 -e '[ "\$(cat '"\$healthcheck"')x" != "x" ] && cat '"\$healthcheck"' || false' >"\$out" 2>&1 \\
+    || handle_int
+}
 
-## Use `while read` loop instead of `watch` to allow for interrupt handling with CTRL+D (EOF)
-# while read -r line; do
-#   cat \$healthcheck > /dev/null 2>&1
-# done
+handle_eof() {
+  [ "\$out" != "/dev/null" ] || LEVEL='**' $LOGGER "EXIT_ON_EOF is set to true. Press \\`CTRL+D\\` to exit."
+  # Run handle_watch in the background
+  handle_watch &
+  # Blocks until Ctrl+D (EOF)
+  cat >/dev/null || true
+  # Terminate the background handle_watch
+  kill %1 2>/dev/null || true
+}
+
+if [ "\${EXIT_ON_EOF:-false}" != "true" ]; then
+  handle_watch
+else
+  handle_eof
+fi
 EOF
 
 # Switch to non-root user

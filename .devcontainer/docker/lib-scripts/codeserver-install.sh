@@ -33,7 +33,7 @@ if __set_url_parts "$GITHUB_REPO" "$VERSION" "$DOWNLOAD_PREFIX"; then
     }
     DOWNLOAD_URL="$(build_url)"
 else
-    LEVEL='!' $LOGGER "Failed to determine download parameters for code-server version $VERSION"
+    LEVEL='error' $LOGGER "Failed to determine download parameters for code-server version $VERSION"
     exit 1
 fi
 
@@ -52,7 +52,7 @@ elif __install_from_tarball "$DOWNLOAD_URL" "$INSTALL_PREFIX"; then
     ln -s "$INSTALL_PREFIX/code-server-$DOWNLOAD_VERSION/bin/code-server" "$HOME/.local/bin/code-server"
     # update-alternatives --install "$HOME/.local/bin/code-server" code-server "$INSTALL_PREFIX/code-server-$DOWNLOAD_VERSION/bin/code-server" 1
 else
-    LEVEL='!' $LOGGER "Failed to download $TOOL_LABEL from $DOWNLOAD_URL"
+    LEVEL='error' $LOGGER "Failed to download $TOOL_LABEL from $DOWNLOAD_URL"
     exit 1
 fi
 

@@ -41,7 +41,7 @@ if __set_url_parts "$GITHUB_REPO" "$VERSION" "v" "$DOWNLOAD_PREFIX"; then
     }
     DOWNLOAD_URL="$(build_url)"
 else
-    LEVEL='!' $LOGGER "Failed to determine download parameters for $TOOL_LABEL version $VERSION"
+    LEVEL='error' $LOGGER "Failed to determine download parameters for $TOOL_LABEL version $VERSION"
     exit 1
 fi
 
@@ -85,7 +85,7 @@ update-alternatives --install "\$NODEJS_HOME/bin/npx" npx "\$npx" 1
 EOF
 
 else
-    LEVEL='!' $LOGGER "Failed to download $TOOL_LABEL from $DOWNLOAD_URL"
+    LEVEL='error' $LOGGER "Failed to download $TOOL_LABEL from $DOWNLOAD_URL"
     exit 1
 fi
 

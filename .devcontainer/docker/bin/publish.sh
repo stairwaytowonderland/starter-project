@@ -206,5 +206,5 @@ set -- "${com[@]}"
 # . "$script_dir/exec-com.sh" "$@"
 
 echo "(√) Done! Docker image publishing complete." >&2
-echo "_______________________________________" >&2
+# echo "_______________________________________" >&2
 echo >&2

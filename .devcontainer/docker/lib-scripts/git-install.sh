@@ -31,7 +31,7 @@ get_version() {
             set -e
         fi
         if [ -z "${GIT_VERSION}" ] || ! echo "${version_list}" | grep "^${GIT_VERSION//./\\.}$" > /dev/null 2>&1; then
-            LEVEL='!' $LOGGER "Invalid git version: ${GIT_VERSION}"
+            LEVEL='error' $LOGGER "Invalid git version: ${GIT_VERSION}"
             exit 1
         fi
     fi
@@ -115,7 +115,7 @@ git_install() {
 git_install "$GIT_VERSION"
 
 if ! type git > /dev/null 2>&1; then
-    LEVEL='!' $LOGGER "GIT installation failed!"
+    LEVEL='error' $LOGGER "GIT installation failed!"
     exit 1
 fi
 

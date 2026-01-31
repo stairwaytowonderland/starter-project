@@ -26,20 +26,20 @@ simple_cleanup() {
     # Remove dangling images
     (
         set -x
-        docker rmi "$(docker image ls -f dangling=true -q)"
+        docker image ls -f dangling=true -q | xargs -r docker image rm
     ) || true
 
     # Remove stopped containers
     (
         set -x
-        docker rm "$(docker ps -a -f status=exited -q)"
+        docker ps -a -f status=exited -q | xargs -r docker rm
     ) || true
 
-    # Remove unused volumes
-    (
-        set -x
-        docker volume rm "$(docker volume ls -f dangling=true -q)"
-    ) || true
+    # ! Remove unused volumes
+    # (
+    #     set -x
+    #     docker volume ls -f dangling=true -q | xargs -r docker volume rm
+    # ) || true
 }
 
 system_cleanup() {
@@ -49,6 +49,7 @@ system_cleanup() {
     com=(docker system)
     com+=(prune)
     com+=(-a)
+    com+=(-f)
     com+=(--volumes)
     com+=("$@")
 
@@ -85,5 +86,5 @@ clean() {
 clean "$@"
 
 echo "(√) Done! Docker cleanup complete." >&2
-echo "_______________________________________" >&2
+# echo "_______________________________________" >&2
 echo >&2

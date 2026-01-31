@@ -84,7 +84,7 @@ __get_version() {
     _version="${2:-latest}"
 
     if [ -z "$_github_repo" ]; then
-        LEVEL='!' $LOGGER "GitHub repository is required to fetch version (${_version}) from tags."
+        LEVEL='error' $LOGGER "GitHub repository is required to fetch version (${_version}) from tags."
         return 1
     fi
 
@@ -99,14 +99,14 @@ __get_version() {
         fi
         escaped_version_check="$(echo "${VERSION}" | sed 's/\./\\./g')"
         if [ -z "${VERSION}" ] || ! echo "${version_list}" | grep "^${escaped_version_check}$" > /dev/null 2>&1; then
-            LEVEL='!' $LOGGER "Invalid git version: ${VERSION}"
+            LEVEL='error' $LOGGER "Invalid git version: ${VERSION}"
             return 2
         fi
     fi
 
     # shellcheck disable=SC2015
     __check_semver "$VERSION" && echo "$VERSION" || {
-        LEVEL='!' $LOGGER "Version must be a semantic version (e.g., 1.2.3): ${VERSION}"
+        LEVEL='error' $LOGGER "Version must be a semantic version (e.g., 1.2.3): ${VERSION}"
         return 3
     }
 }
@@ -147,7 +147,7 @@ __install_from_tarball() {
             tar_opts="j"
             ;;
         *)
-            LEVEL='!' $LOGGER "Unsupported tarball extension: $file_ext"
+            LEVEL='error' $LOGGER "Unsupported tarball extension: $file_ext"
             return 1
             ;;
     esac
@@ -164,7 +164,7 @@ __install_from_package() {
     DOWNLOAD_URL="${1-}"
     file_ext="${DOWNLOAD_URL##*.}"
     [ "$file_ext" = "deb" ] || {
-        LEVEL='!' $LOGGER "Unsupported package extension: $file_ext"
+        LEVEL='error' $LOGGER "Unsupported package extension: $file_ext"
         return 1
     }
 
