@@ -22,7 +22,7 @@ script_dir="$(cd "$(dirname "$script_name")" && pwd)"
 first_arg="${1-}"
 [ -z "$first_arg" ] || shift
 
-. "${script_dir}/load-env.sh" "${script_dir}/.."
+. "${script_dir}/loader.sh" "${script_dir}/.."
 
 # ---------------------------------------
 
@@ -77,7 +77,7 @@ else
 fi
 
 # * Registry login happens here
-if ! . "${script_dir}/docker-registry.sh" "$REPO_NAMESPACE" "$REPO_NAME"; then
+if ! . "${script_dir}/login.sh" "$REPO_NAMESPACE" "$REPO_NAME"; then
     echo "Error: Not logged in to ${REGISTRY_PROVIDER} Container Registry." >&2
     exit 1
 elif [ -z "$REGISTRY_URL_PREFIX" ]; then
@@ -140,7 +140,7 @@ tag_image "$build_tag" "$REGISTRY_URL"
 base_image_name_cap="$(capitalize "$BASE_IMAGE_NAME")"
 image_title="${title_prefix}${title_suffix-}"
 repo_source="https://${REGISTER_PROVIDER_FQDN}/${REPO_NAMESPACE}/${REPO_NAME}"
-revision="$(git -C "$script_dir/../../.." rev-parse HEAD)"
+revision="$(git -C "${script_dir}/../../.." rev-parse HEAD)"
 description_url="${repo_source}/blob/main/.devcontainer/docker"
 description_image="Built from \`${BASE_IMAGE_NAME}:${BASE_IMAGE_VARIANT}\`."
 description_docs="For documentation and source, visit: ${description_url}"
@@ -166,7 +166,7 @@ com=(docker push)
 com+=("$REGISTRY_URL")
 
 set -- "${com[@]}"
-. "$script_dir/exec-com.sh" "$@"
+. "${script_dir}/executer.sh" "$@"
 
 if [ "$DOCKER_TARGET" = "$LATEST_TARGET" ] && [ "${LATEST:-false}" = "true" ]; then
     latest_tag="${IMAGE_NAME}:latest"
@@ -179,7 +179,7 @@ if [ "$DOCKER_TARGET" = "$LATEST_TARGET" ] && [ "${LATEST:-false}" = "true" ]; t
     com+=("$REGISTRY_URL")
 
     set -- "${com[@]}"
-    . "$script_dir/exec-com.sh" "$@"
+    . "${script_dir}/executer.sh" "$@"
 fi
 
 remove_danglers() {
@@ -224,7 +224,7 @@ com+=("--annotation" "${annotation_prefix}org.opencontainers.image.licenses=MIT"
 com+=("$REGISTRY_URL")
 
 set -- "${com[@]}"
-. "${script_dir}/exec-com.sh" "$@"
+. "${script_dir}/executer.sh" "$@"
 
 # Pull the manifest to ensure local availability
 # echo "Pulling the published Docker image manifest to ensure local availability..."
@@ -232,7 +232,7 @@ set -- "${com[@]}"
 # pull_com+=("$REGISTRY_URL")
 
 # set -- "${pull_com[@]}"
-# . "${script_dir}/exec-com.sh" "$@"
+# . "${script_dir}/executer.sh" "$@"
 
 echo "(√) Done! Docker image publishing complete." >&2
 # echo "_______________________________________" >&2

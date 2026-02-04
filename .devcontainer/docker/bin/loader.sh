@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1091
 
+# Helper function to load environment variables from a specified .env file
+# Usage: __load_env env_file
+# Args:
+#   env_file: Path to the .env file to load
+# Example:
+#   __load_env /path/to/.env
 __load_env() {
     local env_file="${1}"
 
@@ -56,6 +62,15 @@ dedupe() {
     fi
 }
 
+# Helper function to show a wait progress bar with optional manual override
+# Usage: waitprogress [waitfor] [progress_char] [background_char]
+# Args:
+#   waitfor: Number of seconds to wait (default: 5)
+#   progress_char: Character to use for progress bar (default: '█')
+#   background_char: Character to use for background bar (default: '░')
+# Example:
+#   waitprogress
+#   waitprogress 10 '#' '-'
 waitprogress() {
     local _waitfor="${1:-5}"
     local progress_char="${2:-█}"
@@ -134,6 +149,13 @@ waitprogress() {
     echo >&2
 }
 
+# Main function to load environment variables from a .env file
+# Usage: load_env [env_dir]
+# Args:
+#   env_dir: Directory containing the .env file (default: script's parent directory)
+# Example:
+#   load_env
+#   load_env /path/to/dir
 load_env() {
     # Declare script path variables in local scope since this is called from other scripts
     # ---------------------------------------

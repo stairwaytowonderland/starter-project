@@ -23,7 +23,7 @@ script_dir="$(cd "$(dirname "$script_name")" && pwd)"
 # Specify last argument as context if it's a directory
 last_arg="${*: -1}"
 
-. "${script_dir}/load-env.sh" "${script_dir}/.."
+. "${script_dir}/loader.sh" "${script_dir}/.."
 
 # ---------------------------------------
 
@@ -45,7 +45,7 @@ DOCKER_TARGET=${DOCKER_TARGET:-"base"}
 if [ -d "$last_arg" ]; then
     RUN_CONTEXT="$last_arg"
 else
-    RUN_CONTEXT="${RUN_CONTEXT:-"$script_dir/../../.."}"
+    RUN_CONTEXT="${RUN_CONTEXT:-"${script_dir}/../../.."}"
 fi
 if [ ! -d "$RUN_CONTEXT" ]; then
     echo "(!) Docker context directory not found at expected path: ${RUN_CONTEXT}" >&2
@@ -176,7 +176,7 @@ for arg in "$@"; do
 done
 
 set -- "${com[@]}"
-. "${script_dir}/exec-com.sh" "$@"
+. "${script_dir}/executer.sh" "$@"
 
 echo "(√) Done! Docker container exited." >&2
 # echo "_______________________________________" >&2

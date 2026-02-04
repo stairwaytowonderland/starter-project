@@ -54,7 +54,7 @@ system_cleanup() {
     com+=("$@")
 
     set -- "${com[@]}"
-    . "${script_dir}/exec-com.sh" "$@"
+    . "${script_dir}/executer.sh" "$@"
 }
 
 clean() {

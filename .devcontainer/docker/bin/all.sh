@@ -20,14 +20,14 @@ script_dir="$(cd "$(dirname "$script_name")" && pwd)"
 # Specify last argument as context if it's a directory
 last_arg="${*: -1}"
 
-. "${script_dir}/load-env.sh" "${script_dir}/.."
+. "${script_dir}/loader.sh" "${script_dir}/.."
 
 # ---------------------------------------
 
 if [ -d "$last_arg" ]; then
     BUILD_CONTEXT="$last_arg"
 else
-    BUILD_CONTEXT="${BUILD_CONTEXT:-"$script_dir/../../.."}"
+    BUILD_CONTEXT="${BUILD_CONTEXT:-"${script_dir}/../../.."}"
 fi
 if [ ! -d "$BUILD_CONTEXT" ]; then
     echo "(!) Docker context directory not found at expected path: ${BUILD_CONTEXT}" >&2
@@ -47,7 +47,7 @@ REPO_NAME="${REPO_NAME-}"
 REPO_NAMESPACE="${REPO_NAMESPACE-}"
 bin_dir=".devcontainer/docker/bin"
 
-if ! . "${script_dir}/docker-registry.sh" "$REPO_NAMESPACE" "$REPO_NAME"; then
+if ! . "${script_dir}/login.sh" "$REPO_NAMESPACE" "$REPO_NAME"; then
     echo "Error: Not logged in to ${REGISTRY_PROVIDER} Container Registry." >&2
     exit 1
 fi
@@ -77,7 +77,7 @@ TIME_MSG_LABEL= TIME_MSG_PREFIX= $BUILD_CONTEXT/$bin_dir/publish.sh $REPO_NAME:f
 TIME_MSG_LABEL= TIME_MSG_PREFIX= $BUILD_CONTEXT/$bin_dir/publish.sh $REPO_NAME $REPO_NAMESPACE
 EOF
 
-    "${script_dir}/exec-com.sh" sh -c "$all_commands"
+    "${script_dir}/executer.sh" sh -c "$all_commands"
 }
 
 for arg in "$@"; do

@@ -52,7 +52,7 @@ else
     esac
 fi
 
-. "${script_dir}/load-env.sh" "${script_dir}/.."
+. "${script_dir}/loader.sh" "${script_dir}/.."
 
 # ---------------------------------------
 
@@ -65,7 +65,7 @@ FILEZ_TARGET="${FILEZ_TARGET:-filez}"
 if [ -d "$last_arg" ]; then
     BUILD_CONTEXT="$last_arg"
 else
-    BUILD_CONTEXT="${BUILD_CONTEXT:-"$script_dir/../../.."}"
+    BUILD_CONTEXT="${BUILD_CONTEXT:-"${script_dir}/../../.."}"
 fi
 if [ ! -d "$BUILD_CONTEXT" ]; then
     echo "(!) Docker context directory not found at expected path: $BUILD_CONTEXT" >&2
@@ -143,7 +143,7 @@ done
 com+=("$BUILD_CONTEXT")
 
 set -- "${com[@]}"
-. "${script_dir}/exec-com.sh" "$@"
+. "${script_dir}/executer.sh" "$@"
 
 echo "(√) Done! Docker image build complete." >&2
 # echo "_______________________________________" >&2

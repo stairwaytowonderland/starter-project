@@ -19,8 +19,9 @@ _TODO_: Add complete details for each build target.
         │   ├── all.sh
         │   ├── build.sh
         │   ├── clean.sh
-        │   ├── exec-com.sh
-        │   ├── load-env.sh
+        │   ├── login.sh
+        │   ├── executer.sh.sh
+        │   ├── loader.sh
         │   ├── publish.sh
         │   └── run.sh
         ├── helpers/                  # Helper "scripts" with useful functions;
