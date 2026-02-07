@@ -6,7 +6,7 @@ for this project.
 
 ## Folder Structure
 
-```txt
+```none
 <root>
 └── .devcontainer/
     ├── docker/
@@ -16,6 +16,7 @@ for this project.
     │   ├── helpers/            # Helper "scripts" with useful functions;
     │   │                         meant to be sourced from other scripts
     │   ├── lib-scripts/        # Container installer scripts
+    │   ├── scripts/            # Container user scripts
     │   └── utils/              # Container utility scripts
     ├── devcontainer.json       # VS Code Dev Container configuration
     └── README.md               # This file

@@ -18,212 +18,8 @@ ENV PASSGEN=$PASSGEN \
     CODESERVER_PASS_LENGTH=$DEFAULT_PASS_LENGTH \
     CODESERVER_PASS_CHARSET=$DEFAULT_PASS_CHARSET
 
-COPY --chmod=755 <<EOF $LOGGER
-#!/bin/sh
-
-# Simple logger script
-
-# Usage: [LEVEL=<level>] $LOGGER <message>
-#
-# Arguments:
-#   message: Message to log
-#
-# Output:
-#   Logs message with timestamp and log level (default: info)
-
-LEVEL="\${LEVEL:-info}"
-QUIET="\${QUIET:-false}"
-
-__log() {
-  timestamp="\$(date +'%Y-%m-%d %H:%M:%S')"
-  template="[%s] [%s] %s"
-
-  case "\$LEVEL" in
-    \\*|\\√|\\ƒ) ;;
-    debug|info|warn|warning|error)
-      LEVEL="\$(echo "\$LEVEL" | tr '[:lower:]' '[:upper:]')"
-      ;;
-    \\*\\*)
-      LEVEL="INFO"
-      template="[%s] [%s] ** %s"
-      ;;
-    \\!|\\¡)
-      LEVEL="WARNING"
-      template="[%s] [%s] !! %s"
-      ;;
-    *) LEVEL="INFO" ;;
-  esac
-
-  printf "\${template}\\n" "\${timestamp}" "\${LEVEL}" "\$*" >&2
-}
-
-__logger() {
-  if [ "\$#" -lt 1 ] ; then
-    LEVEL=error __log "Usage: [LEVEL=<level>] $LOGGER <message>"
-    exit 1
-  fi
-  # Log the message
-  __log "\$@"
-}
-
-[ "\$QUIET" = "true" ] || __logger "\$@"
-EOF
-
-COPY --chmod=755 <<EOF $PASSGEN
-#!/bin/sh
-
-# Generate a random $DEFAULT_PASS_LENGTH-character alphanumeric password (unless otherwise specified)
-
-# Usage: $PASSGEN [simple|requirements] [length] [charset|min_char_per_fam]
-#
-# Arguments:
-#   mode: 'simple' for simple password generation (default)
-#         'requirements' for password generation with character family requirements
-#   length: Length of password to generate (default: $DEFAULT_PASS_LENGTH)
-#   charset: Characters to use for password generation (simple mode only; default: $DEFAULT_PASS_CHARSET)
-#           Use '[:graph:]' for all printable characters (except space)
-#           Use '[:alnum:]' for alphanumeric characters plus digits
-#           Use a custom set of characters (e.g. '0-9a-zA-Z!@#\$%^&*()')
-#   min_char_per_fam: Minimum characters per family (requirements mode only; default: 2)
-#
-# Output:
-#   Randomly generated password
-
-DEFAULT_PASS_LENGTH="\${DEFAULT_PASS_LENGTH:-$DEFAULT_PASS_LENGTH}"
-DEFAULT_PASS_CHARSET="\${DEFAULT_PASS_CHARSET:-$DEFAULT_PASS_CHARSET}"
-DEFAULT_MAX_QTY="\${DEFAULT_MAX_QTY:-10000}"
-
-simple_pass() {
-    # Does not guarantee character family requirements
-
-    full_charset='[:graph:]'
-    alpha_charset='[:alnum:]'
-    custom_charset='0-9a-zA-Z!%^&.@\$*_:.,?-'
-    default_charset="\${DEFAULT_PASS_CHARSET:-\$full_charset}"
-    LC_ALL=C tr -dc "\${2:-\$default_charset}" < /dev/urandom | head -c"\${1:-\$DEFAULT_PASS_LENGTH}" || usage \$?
-}
-
-requirements_pass() {
-    # Guarantees at least 2 characters from each character family: digits, lowercase, uppercase, special
-
-    max_string_len=\${1:-\$DEFAULT_PASS_LENGTH}
-    min_char_per_fam=\${2:-2}
-
-    tr_num='0-9'
-    tr_lower='a-z'
-    tr_upper='A-Z'
-    tr_special='!%^&.@\$*_:.,?-'
-    tr_special_addtl='~#|<>[]\{\}()\/+=;'
-
-    set -- "\$tr_num" "\$tr_lower" "\$tr_upper" "\$tr_special" "\$tr_special_addtl"
-    count="\$#"
-    shift \$count
-
-    remaining_chars="\$(( max_string_len - \$count * min_char_per_fam ))"
-    if [ \$remaining_chars -lt 0 ]; then remaining_chars=0 ; fi
-
-    ( \\
-          ( LC_CTYPE=C tr -dc "\${tr_num}"     </dev/urandom | head -c "\${min_char_per_fam}" ) \\
-        ; ( LC_CTYPE=C tr -dc "\${tr_lower}"   </dev/urandom | head -c "\${min_char_per_fam}" ) \\
-        ; ( LC_CTYPE=C tr -dc "\${tr_upper}"   </dev/urandom | head -c "\${min_char_per_fam}" ) \\
-        ; ( LC_CTYPE=C tr -dc "\${tr_special}" </dev/urandom | head -c "\${min_char_per_fam}" ) \\
-        ; ( LC_CTYPE=C tr -dc "\${tr_special_addtl}" </dev/urandom | head -c "\${min_char_per_fam}" ) \\
-        ; ( LC_CTYPE=C tr -dc "\${tr_num}\${tr_lower}\${tr_upper}\${tr_special}\${tr_special_addtl}" </dev/urandom | head -c "\${remaining_chars}" ) \\
-    ) | fold -w1 | shuf | tr -d '\n' || usage \$?
-}
-
-usage() {
-    code="\${1:-0}"
-    cat <<EOT >&2
-Usage: $PASSGEN [-quantity] [mode] [options] [positional_args]
-Arguments:
-  quantity: Number of passwords to generate (default: 1; max: 99)
-  mode: '-s|--simple' for simple password generation (default)
-        '-r|--requirements' for password generation with character family requirements
-
-Options (must be used with modes):
-  -l, --length <n>              Password length (default: $DEFAULT_PASS_LENGTH)
-  -c, --charset <chars>         Character set for simple mode
-  -m, --min-char-per-fam <n>    Minimum characters per family for requirements mode (default: 2)
-
-Positional args (alternative to options):
-  length: Length of password to generate
-  charset|min_char_per_fam: Charset for simple mode or min chars for requirements mode
-
-Examples:
-  $PASSGEN 64
-  $PASSGEN -5 20
-  $PASSGEN 20 '0-9a-zA-Z!@#\\\$%^&*()'
-  $PASSGEN -r -l 16
-  $PASSGEN -s -l 32 -c 'a-zA-Z0-9!@#\\\$%^&*()'
-  $PASSGEN -5 -r -l 20
-  $PASSGEN --simple 12 'a-zA-Z0-9'
-  $PASSGEN --requirements 16 3
-EOT
-    exit "\$code"
-}
-
-parse_args() {
-    case "\$1" in
-        -s|--simple)
-            shift
-            while [ "\$#" -gt 0 ]; do
-                case "\$1" in
-                    -l|--length) length="\$2"; shift 2 ;;
-                    -c|--charset) charset="\$2"; shift 2 ;;
-                    -m|--min-char-per-fam)
-                        LEVEL='error' $LOGGER "-m|--min-char-per-fam is not valid with -s|--simple mode"
-                        usage 1
-                        ;;
-                    *) break ;;
-                esac
-            done
-            simple_pass "\${length:-\$1}" "\${charset:-\$2}"
-            return \$?
-            ;;
-        -r|--requirements)
-            shift
-            while [ "\$#" -gt 0 ]; do
-                case "\$1" in
-                    -l|--length) length="\$2"; shift 2 ;;
-                    -m|--min-char-per-fam) min_char="\$2"; shift 2 ;;
-                    -c|--charset)
-                        LEVEL='error' $LOGGER "-c|--charset is not valid with -r|--requirements mode"
-                        usage 1
-                        ;;
-                    *) break ;;
-                esac
-            done
-            requirements_pass "\${length:-\$1}" "\${min_char:-\$2}"
-            return \$?
-            ;;
-        *)
-            simple_pass "\$@"
-            return \$?
-            ;;
-    esac
-}
-
-passgen() {
-    qty=0
-    first_arg="\${1-}"
-    if echo "\$first_arg" | grep -qE "^-[0-9]+$"; then
-        qty="\${first_arg#-}"
-        shift
-    fi
-    if [ \$qty -gt 0 ] && [ \$qty -lt "\$DEFAULT_MAX_QTY" ]; then
-        count=0
-        while [ \$count -lt \$qty ]; do
-            printf "%s\\n" "\$(parse_args \$@)"
-            count=\$(( count + 1 ))
-        done
-    else
-        parse_args "\$@"
-    fi
-}
-
-passgen "\$@"
-EOF
+COPY --chmod=755 .devcontainer/docker/utils/logger.sh $LOGGER
+COPY --chmod=755 .devcontainer/docker/utils/passgen.sh $PASSGEN
 
 COPY .devcontainer/docker/helpers/*.sh /helpers/
 
@@ -397,8 +193,6 @@ ARG USER_UID=1000 \
     FIXPATH=/usr/local/bin/fixpath.sh \
     # Default path to Homebrew binary (for convenience; not likely to change)
     BREW=/home/linuxbrew/.linuxbrew/bin/brew \
-    # Path to pipx binary locator script
-    PIPX=/usr/local/bin/pipxpath.sh \
     # Set default Git version to install
     # ('latest' to install latest from source, 'system' to use system Git, or specify version like '2.34.1', '2.35.0', etc.)
     GIT_VERSION=latest \
@@ -416,12 +210,14 @@ ENV PATH="/home/$USERNAME/.local/bin:$PATH" \
     PYTHON_VERSION=$PYTHON_VERSION \
     DEV=$DEV
 
+COPY --chmod=755 .devcontainer/docker/utils/fixpath.sh $FIXPATH
+
 # Copy library scripts
 COPY --chmod=755 .devcontainer/docker/lib-scripts/devbuilder*.sh \
     .devcontainer/docker/lib-scripts/git-install.sh \
     /tmp/lib-scripts/
 
-RUN /tmp/lib-scripts/devbuilder-generators.sh \
+RUN sed -i "s|\$FIXPATH|$FIXPATH|g" $FIXPATH \
   && /tmp/lib-scripts/devbuilder-utils.sh \
   && /tmp/lib-scripts/git-install.sh \
   && /tmp/lib-scripts/devbuilder-user-setup.sh \
@@ -465,26 +261,25 @@ CMD ["sh", "-c", "exec $BREW"]
 # --------------------------------------------------------------
 FROM $DEV_PARENT_IMAGE AS base
 
-# Default user workspace directory
-ARG DEFAULT_WORKSPACE=/home/$USERNAME/workspace \
-    PRE_COMMIT_ENABLED=false
-
-ENV DEFAULT_WORKSPACE=$DEFAULT_WORKSPACE \
-    # Set default to not reset root password, in case devcontainer inherits from devtools or cloudtools
-    # Precautionary measure to avoid interactive prompt when running devcontainer
-    RESET_ROOT_PASS=false
-
 # Copy library scripts
 COPY --chmod=755 .devcontainer/docker/lib-scripts/base-*.sh /tmp/lib-scripts/
 # Copy post-start script
-COPY --chmod=755 .devcontainer/docker/utils/post-start.sh /usr/local/bin/post-start
+COPY --chmod=755 .devcontainer/docker/scripts/post-start.sh /usr/local/bin/post-start
 
 # Copy shfmt installation from gobuilder stage
 COPY --from=gobuilder /usr/local/bin/shfmt /usr/local/bin/shfmt
 
+# Path to pipx binary locator script
+ARG PIPX=/usr/local/bin/pipxpath.sh
+COPY --chmod=755 .devcontainer/docker/utils/pipxpath.sh $PIPX
+
 USER root
 
+ARG PRE_COMMIT_ENABLED=false
+
 RUN sed -i "s|\$LOGGER|$LOGGER|g" /usr/local/bin/post-start \
+  && sed -i "s|\$PIPX|$PIPX|g" $PIPX \
+  && sed -i "s|\$BREW|$BREW|g" $PIPX \
   && /tmp/lib-scripts/base-utils.sh \
   # Cleanup
   && apt-get clean -y \
@@ -494,61 +289,14 @@ RUN sed -i "s|\$LOGGER|$LOGGER|g" /usr/local/bin/post-start \
   && touch /.healthcheck \
   && chmod 666 /.healthcheck
 
-COPY --chmod=755 <<EOF /usr/local/bin/healthcheck.sh
-#!/bin/sh
+# Default user workspace directory
+ARG DEFAULT_WORKSPACE=/home/$USERNAME/workspace
+ENV DEFAULT_WORKSPACE=$DEFAULT_WORKSPACE \
+    # Set default to not reset root password, in case devcontainer inherits from devtools or cloudtools
+    # Precautionary measure to avoid interactive prompt when running devcontainer
+    RESET_ROOT_PASS=false
 
-set -e
-
-healthcheck="/.healthcheck"
-
-cleanup() {
-  code=\${1:-\$?}
-  [ "\$code" -eq 0 ] \\
-    && $LOGGER "** Exiting cleanly. Bye!" \\
-    || LEVEL='!' $LOGGER "Exiting with code \${code}. Bye!"
-}
-
-handle_int() {
-  code=\$?
-  $LOGGER "** Detected interrupt (\${code}). Cleanup..."
-  trap - EXIT
-  cleanup \$code
-  exit
-}
-
-trap handle_int INT
-trap cleanup EXIT
-
-out="/dev/null"
-case "\$1" in
-  -i|--interactive)
-    out="/dev/stdout"
-    ;;
-  *)
-    ;;
-esac
-
-handle_watch() {
-  watch -n 5 -e '[ "\$(cat '"\$healthcheck"')x" != "x" ] && cat '"\$healthcheck"' || false' >"\$out" 2>&1 \\
-    || handle_int
-}
-
-handle_eof() {
-  [ "\$out" != "/dev/null" ] || LEVEL='**' $LOGGER "EXIT_ON_EOF is set to true. Press \\`CTRL+D\\` to exit."
-  # Run handle_watch in the background
-  handle_watch &
-  # Blocks until Ctrl+D (EOF)
-  cat >/dev/null || true
-  # Terminate the background handle_watch
-  kill %1 2>/dev/null || true
-}
-
-if [ "\${EXIT_ON_EOF:-false}" != "true" ]; then
-  handle_watch
-else
-  handle_eof
-fi
-EOF
+COPY --chmod=755 .devcontainer/docker/utils/healthcheck.sh /usr/local/bin/healthcheck.sh
 
 # Switch to non-root user
 USER $USERNAME
@@ -733,7 +481,7 @@ ENV BIND_ADDR=$BIND_ADDR \
     DEBUG=false
 
 # Copy start-code-server script
-COPY --chmod=755 .devcontainer/docker/utils/start-code-server.sh /usr/local/bin/start-code-server
+COPY --chmod=755 .devcontainer/docker/scripts/start-code-server.sh /usr/local/bin/start-code-server
 
 # If standalone download is false, use root to install the .deb package
 # If standalone download is true use $USERNAME to install the tar.gz package
@@ -801,7 +549,7 @@ ENV BIND_ADDR=$BIND_ADDR \
     DEBUG=false
 
 # Copy start-code-server script
-COPY --chmod=755 .devcontainer/docker/utils/start-code-server.sh /usr/local/bin/start-code-server
+COPY --chmod=755 .devcontainer/docker/scripts/start-code-server.sh /usr/local/bin/start-code-server
 
 # If standalone download is false, use root to install the .deb package
 # If standalone download is true use $USERNAME to install the tar.gz package

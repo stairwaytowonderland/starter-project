@@ -33,7 +33,8 @@
 		"*.cron": "shellscript",
 		"*.lib": "shellscript",
 		"*yaml.tftpl": "jinja-yaml",
-		"*json.tftpl": "jinja-json"
+		"*json.tftpl": "jinja-json",
+		"LICENSE": "plaintext"
 	},
 	"files.exclude": {
 		"**/.git": true,

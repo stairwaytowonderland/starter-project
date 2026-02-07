@@ -4,7 +4,7 @@ Use this repo as a starting point for other new projects.
 
 ## Project Structure
 
-```txt
+```none
 <root>
 ├── .devcontainer/
 │   ├── docker/               # Dev Container Docker files and scripts
@@ -14,6 +14,7 @@ Use this repo as a starting point for other new projects.
 │   │   ├── helpers/          # Helper "scripts" with useful functions;
 │   │   │                       meant to be sourced from other scripts
 │   │   ├── lib-scripts/      # Container installer scripts
+│   │   ├── scripts/          # Container user scripts
 │   │   └── utils/            # Container utility scripts
 │   ├── devcontainer.json     # VS Code Dev Container configuration
 │   └── README.md
@@ -33,7 +34,7 @@ Use this repo as a starting point for other new projects.
 git clone git@github.com:stairwaytowonderland/starter-project.git
 ```
 
-### Create a new repository on the command line
+### Create a new repository from the command line
 
 ```bash
 # Delete the .git folder from cloned starter project

@@ -6,7 +6,7 @@ _TODO_: Add complete details for each build target.
 
 ## Folder Structure
 
-```txt
+```none
 <root>
 └── .devcontainer/
     └── docker/
@@ -19,17 +19,23 @@ _TODO_: Add complete details for each build target.
         │   ├── all.sh
         │   ├── build.sh
         │   ├── clean.sh
-        │   ├── login.sh
-        │   ├── executer.sh.sh
+        │   ├── executer.sh
         │   ├── loader.sh
+        │   ├── login.sh
         │   ├── publish.sh
         │   └── run.sh
         ├── helpers/                  # Helper "scripts" with useful functions;
         │                               meant to be sourced from other scripts
         ├── lib-scripts/              # Container installer scripts
+        ├── scripts/                  # Container user scripts
+        │   ├── post-start.sh
+        │   └── start-code-server.sh
         └── utils/                    # Container utility scripts
-            ├── post-start.sh
-            └── start-code-server.sh
+            ├── fixpath.sh
+            ├── healthcheck.sh
+            ├── logger.sh
+            ├── passgen.sh
+            └── pipxpath.sh
 ```
 
 ## Environment Variables

@@ -42,7 +42,7 @@ REPO_NAME="${REPO_NAME-}"
 # Determine IMAGE_NAME
 IMAGE_NAME=${first_arg:-$REPO_NAME}
 if [ -z "$IMAGE_NAME" ]; then
-    echo "Usage: $0 <image-name[:build_target]> [github-username] [image-version]" >&2
+    echo "Usage: $0 <image-name[:build_target]> [registry-username] [image-version]" >&2
     exit 1
 fi
 if [ -n "${IMAGE_NAME##*:}" ] && [ "${IMAGE_NAME##*:}" != "$IMAGE_NAME" ]; then
@@ -50,7 +50,11 @@ if [ -n "${IMAGE_NAME##*:}" ] && [ "${IMAGE_NAME##*:}" != "$IMAGE_NAME" ]; then
     IMAGE_NAME="${IMAGE_NAME%%:*}"
 fi
 DOCKER_TARGET=${DOCKER_TARGET:-"base"}
-
+# Determine REGISTRY_USER
+if [ $# -gt 0 ]; then
+    REGISTRY_USER="${1:-$REGISTRY_USER}"
+    shift
+fi
 # Determine IMAGE_VERSION
 if [ $# -gt 0 ]; then
     IMAGE_VERSION="${1-}"
@@ -77,7 +81,7 @@ else
 fi
 
 # * Registry login happens here
-if ! . "${script_dir}/login.sh" "$REPO_NAMESPACE" "$REPO_NAME"; then
+if ! . "${script_dir}/login.sh" "${REGISTRY_USER:-$REPO_NAMESPACE}" "$REPO_NAME"; then
     echo "Error: Not logged in to ${REGISTRY_PROVIDER} Container Registry." >&2
     exit 1
 elif [ -z "$REGISTRY_URL_PREFIX" ]; then
