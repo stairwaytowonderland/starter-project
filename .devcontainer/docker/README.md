@@ -112,7 +112,7 @@ graph TD
 
     classDef padding padding:100px
     classDef small font-size:10px
-    classDef parent fill:#1d63ed,stroke:#bcbcbc,color:#fff
+    classDef parent fill:#1d63ed,stroke:#bcbcbc,color:#ccc
     classDef primary fill:#008000,stroke:#004000,color:#fff
     classDef secondary fill:#4caf50,stroke:#2e7d32,color:#fff
     classDef tertiary fill:#674ea7,stroke:#473673,color:#fff
@@ -151,6 +151,7 @@ A lightweight Alpine-based stage for preprocessing utility scripts before copyin
 ```mermaid
 graph LR
     alpine[alpine] --> utils[utils]
+    style alpine fill:#1d63ed,stroke:#bcbcbc,color:#ccc
     style utils fill:#e1f5ff,stroke:#333,color:#333
 ```
 
@@ -206,6 +207,7 @@ Minimal Debian-based image with essential build tools and dependencies.
 ```mermaid
 graph LR
     base_image["$BASE_IMAGE<br/>(ubuntu:latest)"] --> builder[builder]
+    style base_image fill:#1d63ed,stroke:#bcbcbc,color:#ccc
     style builder fill:#ffd3b6,stroke:#ffa56a,color:#333
 ```
 
@@ -246,6 +248,7 @@ Installs Homebrew for Linux.
 ```mermaid
 graph LR
     base_image["$BASE_IMAGE"] --> builder[builder] --> brewbuilder[brewbuilder]
+    style base_image fill:#1d63ed,stroke:#bcbcbc,color:#ccc
     style brewbuilder fill:#90caf9,stroke:#1976d2,color:#333
 ```
 
@@ -269,6 +272,7 @@ Installs Go and Go-based tools.
 ```mermaid
 graph LR
     base_image["$BASE_IMAGE"] --> builder[builder] --> gobuilder[gobuilder]
+    style base_image fill:#1d63ed,stroke:#bcbcbc,color:#ccc
     style gobuilder fill:#90caf9,stroke:#1976d2,color:#333
 ```
 
@@ -293,6 +297,7 @@ Installs Node.js and related tools.
 ```mermaid
 graph LR
     base_image["$BASE_IMAGE"] --> builder[builder] --> nodebuilder[nodebuilder]
+    style base_image fill:#1d63ed,stroke:#bcbcbc,color:#ccc
     style nodebuilder fill:#90caf9,stroke:#1976d2,color:#333
 ```
 
@@ -322,6 +327,7 @@ Extended builder with development tools and configuration.
 ```mermaid
 graph LR
     base_image["$BASE_IMAGE"] --> builder[builder] --> devbuilder[devbuilder]
+    style base_image fill:#1d63ed,stroke:#bcbcbc,color:#ccc
     style devbuilder fill:#0b5394,stroke:#073d6e,color:#fff
 ```
 
@@ -544,6 +550,7 @@ Minimal production-ready container.
 ```mermaid
 graph LR
     base_image["$BASE_IMAGE"] --> builder[builder] --> production[production]
+    style base_image fill:#1d63ed,stroke:#bcbcbc,color:#ccc
     style production fill:#800080,stroke:#4d004d,color:#fff
 ```
 
@@ -959,13 +966,13 @@ Secure password generation utility.
 passgen [-<n>] [mode] [options] [positional_args]
 ```
 
-**`<n>`** _quantity_:
+**Quantity**: `-<n>`
 
 Number of passwords to generate (default: 0; optional, numeric preceded by single dash).
 
 - Default maximum is determined by a `DEFAULT_MAX_QTY` environment variable (default: 10000).
-- **`n=0`** - This is the default quantity, and causes a single password to output without line breaks.
-- **`n>0,n<=$DEFAULT_MAX_QTY`** - Causes _n_ number of passwords to output, with line breaks after each.
+- `n=0` - This is the default quantity, and causes a single password to output without line breaks.
+- `n>0,n<=$DEFAULT_MAX_QTY` - Causes _n_ number of passwords to output, with line breaks after each.
 
 **Modes**:
 
