@@ -69,8 +69,9 @@ C_BLUE="\033[34m" C_MAGENTA="\033[35m" C_CYAN="\033[36m" \\
 C_RED_BOLD="\033[1;31m" C_GREEN_BOLD="\033[1;32m" \\
 C_YELLOW_BOLD="\033[1;33m" C_BLUE_BOLD="\033[1;34m" \\
 C_MAGENTA_BOLD="\033[1;35m" C_CYAN_BOLD="\033[1;36m" \\
-C_BRIGHT_RED="\033[91m" C_BRIGHT_GREEN="\033[92m" C_BRIGHT_YELLOW="\033[93m" \\
-C_BRIGHT_BLUE="\033[94m" C_BRIGHT_MAGENTA="\033[95m" C_BRIGHT_CYAN="\033[96m" \\
+C_BRIGHT_RED="\033[91m" C_BRIGHT_GREEN="\033[92m" \\
+C_BRIGHT_YELLOW="\033[93m" C_BRIGHT_BLUE="\033[94m" \\
+C_BRIGHT_MAGENTA="\033[95m" C_BRIGHT_CYAN="\033[96m" \\
 C_BRIGHT_RED_BOLD="\033[1;91m" C_BRIGHT_GREEN_BOLD="\033[1;92m" \\
 C_BRIGHT_YELLOW_BOLD="\033[1;93m" C_BRIGHT_BLUE_BOLD="\033[1;94m" \\
 C_BRIGHT_MAGENTA_BOLD="\033[1;95m" C_BRIGHT_CYAN_BOLD="\033[1;96m" \\
@@ -83,7 +84,8 @@ errcho() { >&2 echo -e "\$@"; }
 
 # OS Detection
 os() {
-    if [ -r /etc/os-release ]; then
+    if [ -r /etc/os-release ]
+    then
         (. /etc/os-release; echo "\${ID-}-\${VERSION_CODENAME-}")
     else
         errcho "Unable to determine OS: /etc/os-release not found"
@@ -92,33 +94,25 @@ os() {
 
 # String Manipulation
 # Usage:
-#     uppercase "input string here"
-#     uppercase -i "input string here"
-#     lowercase "input string here"
-#     lowercase -i "input string here"
+#     uppercase "string to convert"
+#     echo "string to convert" | uppercase
+#     lowercase "STRING TO CONVERT"
+#     echo "STRING TO CONVERT" | lowercase
 uppercase() {
-    case "\$1" in
-        -i|--input)
-            tr '[:lower:]' '[:upper:]' <<<"\$2"
-            return \$?
-            ;;
-        *)
-            tr '[:lower:]' '[:upper:]'
-            return \$?
-            ;;
-    esac
+    if [ -n "\$1" ]
+    then
+        tr '[:lower:]' '[:upper:]' <<<"\$@"
+    else
+        tr '[:lower:]' '[:upper:]'
+    fi
 }
 lowercase() {
-    case "\$1" in
-        -i|--input)
-            tr '[:upper:]' '[:lower:]' <<<"\$2"
-            return \$?
-            ;;
-        *)
-            tr '[:upper:]' '[:lower:]'
-            return \$?
-            ;;
-    esac
+    if [ -n "\$1" ]
+    then
+        tr '[:upper:]' '[:lower:]' <<<"\$@"
+    else
+        tr '[:upper:]' '[:lower:]'
+    fi
 }
 
 # Boolean Checks
