@@ -148,6 +148,12 @@ graph TD
 
 A lightweight Alpine-based stage for preprocessing utility scripts before copying to scratch.
 
+```mermaid
+graph LR
+    alpine[alpine] --> utils[utils]
+    style utils fill:#e1f5ff,stroke:#333,color:#333
+```
+
 **Purpose**: Process and prepare utility scripts (logger.sh, passgen.sh) with sed replacements before collecting in filez
 stage.
 
@@ -170,6 +176,12 @@ stage.
 
 A scratch-based stage for collecting and organizing core helper scripts that are copied into other stages.
 
+```mermaid
+graph LR
+    scratch[scratch] --> filez[filez]
+    style filez fill:#e1f5ff,stroke:#333,color:#333
+```
+
 **Purpose**: Centralize script collection to avoid duplication across stages.
 
 **Contents**:
@@ -190,6 +202,12 @@ A scratch-based stage for collecting and organizing core helper scripts that are
 ### 3. **`builder`** (`FROM $BASE_IMAGE`)
 
 Minimal Debian-based image with essential build tools and dependencies.
+
+```mermaid
+graph LR
+    base_image["$BASE_IMAGE<br/>(ubuntu:latest)"] --> builder[builder]
+    style builder fill:#ffd3b6,stroke:#ffa56a,color:#333
+```
 
 **Purpose**: Foundation for all other build targets.
 
@@ -225,6 +243,12 @@ Minimal Debian-based image with essential build tools and dependencies.
 
 Installs Homebrew for Linux.
 
+```mermaid
+graph LR
+    base_image["$BASE_IMAGE"] --> builder[builder] --> brewbuilder[brewbuilder]
+    style brewbuilder fill:#90caf9,stroke:#1976d2,color:#333
+```
+
 **Purpose**: Provide Homebrew for package management in development environments.
 
 **Build Arguments**:
@@ -241,6 +265,12 @@ Installs Homebrew for Linux.
 ### 5. **`gobuilder`** (`FROM builder`)
 
 Installs Go and Go-based tools.
+
+```mermaid
+graph LR
+    base_image["$BASE_IMAGE"] --> builder[builder] --> gobuilder[gobuilder]
+    style gobuilder fill:#90caf9,stroke:#1976d2,color:#333
+```
 
 **Purpose**: Build Go tools like shfmt for use in other stages.
 
@@ -259,6 +289,12 @@ Installs Go and Go-based tools.
 ### 6. **`nodebuilder`** (`FROM builder`)
 
 Installs Node.js and related tools.
+
+```mermaid
+graph LR
+    base_image["$BASE_IMAGE"] --> builder[builder] --> nodebuilder[nodebuilder]
+    style nodebuilder fill:#90caf9,stroke:#1976d2,color:#333
+```
 
 **Purpose**: Provide Node.js runtime for development environments.
 
@@ -282,6 +318,12 @@ Installs Node.js and related tools.
 ### 7. **`devbuilder`** (`FROM builder`)
 
 Extended builder with development tools and configuration.
+
+```mermaid
+graph LR
+    base_image["$BASE_IMAGE"] --> builder[builder] --> devbuilder[devbuilder]
+    style devbuilder fill:#0b5394,stroke:#073d6e,color:#fff
+```
 
 **Purpose**: Intermediate stage for development containers with Git, AWS CLI, and Terraform.
 
@@ -308,6 +350,12 @@ Extended builder with development tools and configuration.
 
 Creates the non-root development user.
 
+```mermaid
+graph LR
+    builder[builder] --> devbuilder[devbuilder] --> devuser[devuser]
+    style devuser fill:#0b5394,stroke:#073d6e,color:#fff
+```
+
 **Purpose**: Set up non-root user with sudo access and proper permissions.
 
 **Uses**: [`devbuilder-user-setup.sh`](#devbuilder-user-setupsh)
@@ -324,6 +372,12 @@ Creates the non-root development user.
 
 Variant of `devuser` with Homebrew pre-installed.
 
+```mermaid
+graph LR
+    builder[builder] --> devbuilder[devbuilder] --> brewuser[brewuser]
+    style brewuser fill:#0b5394,stroke:#073d6e,color:#fff
+```
+
 **Purpose**: Development user with Homebrew available.
 
 **Uses**: [`devbuilder-user-setup.sh`](#devbuilder-user-setupsh)
@@ -337,6 +391,12 @@ Variant of `devuser` with Homebrew pre-installed.
 ### 10. **`base`** (`FROM $DEV_PARENT_IMAGE`)
 
 The primary base target for development containers.
+
+```mermaid
+graph LR
+    devbuilder[devbuilder] --> dev_parent["$DEV_PARENT_IMAGE<br/>(devuser/brewuser)"] --> base[base]
+    style base fill:#008000,stroke:#004000,color:#fff
+```
 
 **Purpose**: Complete development environment ready for use.
 
@@ -366,6 +426,12 @@ The primary base target for development containers.
 
 Development container with Python, Node.js, and development tools.
 
+```mermaid
+graph LR
+    dev_parent["$DEV_PARENT_IMAGE"] --> base[base] --> devtools[devtools]
+    style devtools fill:#4caf50,stroke:#2e7d32,color:#fff
+```
+
 **Purpose**: Full-featured development environment for Python and Node.js projects.
 
 **Uses**: [`devtools-utils.sh`](#devtools-utilssh), [`python-install.sh`](#python-installsh)
@@ -393,6 +459,12 @@ Development container with Python, Node.js, and development tools.
 
 Development container with cloud CLI tools.
 
+```mermaid
+graph LR
+    dev_parent["$DEV_PARENT_IMAGE"] --> base[base] --> cloudtools[cloudtools]
+    style cloudtools fill:#4caf50,stroke:#2e7d32,color:#fff
+```
+
 **Purpose**: Container optimized for cloud infrastructure work.
 
 **Uses**: [`cloud-cli-tools.sh`](#cloud-cli-toolssh)
@@ -407,6 +479,12 @@ Development container with cloud CLI tools.
 ### 13. **`codeserver-minimal`** (`FROM base`)
 
 Minimal code-server container without development tools.
+
+```mermaid
+graph LR
+    dev_parent["$DEV_PARENT_IMAGE"] --> base[base] --> codeserver_minimal[codeserver-minimal]
+    style codeserver_minimal fill:#674ea7,stroke:#473673,color:#fff
+```
 
 **Purpose**: Lightweight web-based VS Code instance.
 
@@ -442,6 +520,12 @@ Minimal code-server container without development tools.
 
 Full-featured code-server with development tools.
 
+```mermaid
+graph LR
+    base[base] --> devtools[devtools] --> codeserver[codeserver]
+    style codeserver fill:#674ea7,stroke:#473673,color:#fff
+```
+
 **Purpose**: Web-based VS Code with Python, Node.js, and development tools pre-installed.
 
 **Uses**: [`codeserver-install.sh`](#codeserver-installsh), [`codeserver-utils.sh`](#codeserver-utilssh)
@@ -456,6 +540,12 @@ Full-featured code-server with development tools.
 ### 15. **`production`** (`FROM builder`)
 
 Minimal production-ready container.
+
+```mermaid
+graph LR
+    base_image["$BASE_IMAGE"] --> builder[builder] --> production[production]
+    style production fill:#800080,stroke:#4d004d,color:#fff
+```
 
 **Purpose**: Lightweight container for production deployments.
 
