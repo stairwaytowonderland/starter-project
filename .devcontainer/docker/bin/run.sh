@@ -29,6 +29,8 @@ last_arg="${*: -1}"
 
 BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-ubuntu}"
 BASE_IMAGE_VARIANT="${BASE_IMAGE_VARIANT:-latest}"
+TERM="${TERM-}"
+TIMEZONE="${TIMEZONE-$(zoneinfo)}"
 
 if [ $# -lt 1 ]; then
     echo "Usage: $0 <image-name[:build_target]> [remote-user] [context]" >&2
@@ -100,7 +102,8 @@ echo "(*) Running Docker container for ${REMOTE_USER}..." >&2
 com=(docker run -it --rm)
 # TZ not needed, but included for reference and clarity
 com_env=()
-com_env+=("-e" "TZ=${TIMEZONE:-America/Chicago}")
+com_env+=("-e" "TZ=${TIMEZONE}")
+com_env+=("-e" "TERM=${TERM}")
 if [ "${DEV:-false}" = "true" ]; then
     com_env+=("-e" "DEV=true")
     com_env+=("-e" "RESET_ROOT_PASS=${RESET_ROOT_PASS:-false}")

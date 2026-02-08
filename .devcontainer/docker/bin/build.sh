@@ -102,21 +102,6 @@ if [ ! -f "$dockerfile_path" ]; then
     exit 1
 fi
 
-zoneinfo() {
-    echo "(+) Determining timezone..." >&2
-    local DEFAULT_TIMEZONE=UTC
-    [ -n "${TIMEZONE-}" ] \
-        || DEFAULT_TIMEZONE=$(
-            set -eox pipefail
-            readlink /etc/localtime 2> /dev/null | grep zoneinfo | sed 's|.*/zoneinfo/||' \
-                || echo UTC
-        )
-    tz="${TIMEZONE:-$DEFAULT_TIMEZONE}"
-    echo "$tz"
-    echo "(∞) Timezone determined: ${tz}" >&2
-    echo -e "\033[2m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\033[0m" >&2
-}
-
 echo "(*) Building Docker image for ${DOCKER_TARGET}..." >&2
 echo "(*) Dockerfile path: ${dockerfile_path}" >&2
 echo "(*) Docker context: ${BUILD_CONTEXT}" >&2

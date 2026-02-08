@@ -844,13 +844,16 @@ Secure password generation utility.
 **Usage**:
 
 ```bash
-passgen [-quantity] [mode] [options] [positional_args]
+passgen [-<n>] [mode] [options] [positional_args]
 ```
 
-**Quantity**:
+**`<n>`** _quantity_:
 
-- `-2` through `-99` - Number of passwords to generate (optional, numeric preceded by single dash)
-- Default: 1 password, max: 99
+Number of passwords to generate (default: 0; optional, numeric preceded by single dash).
+
+- Default maximum is determined by a `DEFAULT_MAX_QTY` environment variable (default: 10000).
+- **`n=0`** - This is the default quantity, and causes a single password to output without line breaks.
+- **`n>0,n<=$DEFAULT_MAX_QTY`** - Causes _n_ number of passwords to output, with line breaks after each.
 
 **Modes**:
 

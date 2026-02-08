@@ -149,6 +149,21 @@ waitprogress() {
     echo >&2
 }
 
+zoneinfo() {
+    echo "(+) Determining timezone..." >&2
+    local default_tz="${DEFAULT_TIMEZONE:-UTC}"
+    [ -n "${TIMEZONE-}" ] \
+        || default_tz=$(
+            set -eox pipefail
+            readlink /etc/localtime 2> /dev/null | grep zoneinfo | sed 's|.*/zoneinfo/||' \
+                || echo UTC
+        )
+    tz="${TIMEZONE:-$default_tz}"
+    echo "$tz"
+    echo "(∞) Timezone determined: ${tz}" >&2
+    echo -e "\033[2m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\033[0m" >&2
+}
+
 # Main function to load environment variables from a .env file
 # Usage: load_env [env_dir]
 # Args:

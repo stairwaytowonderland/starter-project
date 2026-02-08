@@ -4,17 +4,34 @@ set -e
 
 # Generate a random $DEFAULT_PASS_LENGTH-character alphanumeric password (unless otherwise specified)
 
-# Usage: $PASSGEN [simple|requirements] [length] [charset|min_char_per_fam]
+# Usage: $PASSGEN [-<n>] [mode] [length] [charset|min_char_per_fam]
 #
 # Arguments:
-#   mode: 'simple' for simple password generation (default)
-#         'requirements' for password generation with character family requirements
+#   n: (quantity) Number of passwords to generate (default: 0; max: $DEFAULT_MAX_QTY)
+#       n=0 (default) - Generates a single password without line breaks.
+#       n>0,n<=$DEFAULT_MAX_QTY - generates quantity n passwords, one per line.
+#   mode: '-s|--simple' for simple password generation (default)
+#         '-r|--requirements' for password generation with character family requirements
 #   length: Length of password to generate (default: $DEFAULT_PASS_LENGTH)
 #   charset: Characters to use for password generation (simple mode only; default: $DEFAULT_PASS_CHARSET)
 #           Use '[:graph:]' for all printable characters (except space)
 #           Use '[:alnum:]' for alphanumeric characters plus digits
 #           Use a custom set of characters (e.g. '0-9a-zA-Z!@#$%^&*()')
 #   min_char_per_fam: Minimum characters per family (requirements mode only; default: 2)
+#
+# Positional args can be used as an alternative to options:
+#   length: Length of password to generate
+#   charset|min_char_per_fam: Charset for simple mode or min chars for requirements mode
+#
+# Examples:
+#   $PASSGEN 64
+#   $PASSGEN -5 20
+#   $PASSGEN 20 '0-9a-zA-Z!@#$%^&*()'
+#   $PASSGEN -r -l 16
+#   $PASSGEN -s -l 32 -c 'a-zA-Z0-9!@#$%^&*()'
+#   $PASSGEN -5 -r -l 20
+#   $PASSGEN --simple 12 'a-zA-Z0-9'
+#   $PASSGEN --requirements 16 3
 #
 # Output:
 #   Randomly generated password
@@ -86,35 +103,48 @@ requirements_pass() {
 
 usage() {
     code="${1:-0}"
+    C_BOLD=${C_BOLD:-$(printf '\033[1m')}
+    C_DEFAULT=${C_DEFAULT:-$(printf '\033[0m')}
     cat << EOT >&2
-Usage: $PASSGEN [-quantity] [mode] [options] [positional_args]
-Arguments:
-  quantity: Number of passwords to generate (default: 1; max: $DEFAULT_MAX_QTY)
-  mode: '-s|--simple' for simple password generation (default)
+${C_BOLD}USAGE${C_DEFAULT}
+    $PASSGEN [-<n>] [mode] [options] [positional_args]
+
+${C_BOLD}ARGUMENTS${C_DEFAULT}
+    quantity (optional):
+        n: Number of passwords to generate (default: 0; max: $DEFAULT_MAX_QTY)
+            n=0 (default) - Generates a single password without line breaks.
+            n>0,n<=$DEFAULT_MAX_QTY - generates quantity n passwords, one per line.
+
+    mode (optional):
+        '-s|--simple' for simple password generation (default)
         '-r|--requirements' for password generation with character family requirements
-          !! Pre-requisites:
-            - The --requirements mode requires minimum length of at least 10 characters
-              to ensure it can meet the character family requirements.
-            - The --requirements mode requires GNU coreutils for the shuf, head, fold, and tr utilities.
+            !! Pre-requisites:
+            ==================
+            The --requirements mode requires minimum length of at least 10 characters
+            to ensure it can meet the character family requirements.
+            The --requirements mode requires GNU coreutils for the
+            shuf, head, fold, and tr utilities.
 
-Options (must be used with modes):
-  -l, --length <n>              Password length (default: $DEFAULT_PASS_LENGTH)
-  -c, --charset <chars>         Character set for simple mode
-  -m, --min-char-per-fam <n>    Minimum characters per family for requirements mode (default: 2)
+    options (must be used with mode):
+        -l, --length <n>                Password length (default: $DEFAULT_PASS_LENGTH)
+        -c, --charset <chars>           Character set for simple mode;
+                                        not valid with requirements mode (default: $DEFAULT_PASS_CHARSET)
+        -m, --min-char-per-fam <n>      Minimum characters per family for requirements mode;
+                                        not valid with simple mode (default: 2)
 
-Positional args (alternative to options):
-  length: Length of password to generate
-  charset|min_char_per_fam: Charset for simple mode or min chars for requirements mode
+    Positional args (optional; alternative to options):
+        length: Length of password to generate
+        charset|min_char_per_fam: Charset for simple mode or min chars for requirements mode
 
-Examples:
-  $PASSGEN 64
-  $PASSGEN -5 20
-  $PASSGEN 20 '0-9a-zA-Z!@#\$%^&*()'
-  $PASSGEN -r -l 16
-  $PASSGEN -s -l 32 -c 'a-zA-Z0-9!@#\$%^&*()'
-  $PASSGEN -5 -r -l 20
-  $PASSGEN --simple 12 'a-zA-Z0-9'
-  $PASSGEN --requirements 16 3
+${C_BOLD}EXAMPLES${C_DEFAULT}
+    $PASSGEN 64
+    $PASSGEN -5 20
+    $PASSGEN 20 '0-9a-zA-Z!@#\$%^&*()'
+    $PASSGEN -r -l 16
+    $PASSGEN -s -l 32 -c 'a-zA-Z0-9!@#\$%^&*()'
+    $PASSGEN -5 -r -l 20
+    $PASSGEN --simple 12 'a-zA-Z0-9'
+    $PASSGEN --requirements 16 3
 EOT
     exit "$code"
 }
