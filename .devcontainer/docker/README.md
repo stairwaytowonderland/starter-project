@@ -193,6 +193,8 @@ Minimal Debian-based image with essential build tools and dependencies.
 
 **Purpose**: Foundation for all other build targets.
 
+**Uses**: [`builder-utils.sh`](#builder-utilssh)
+
 **Key Features**:
 
 - Installs common utilities (curl, vim, git, jq, yq, python3)
@@ -242,6 +244,8 @@ Installs Go and Go-based tools.
 
 **Purpose**: Build Go tools like shfmt for use in other stages.
 
+**Uses**: [`go-install.sh`](#go-installsh)
+
 **Build Arguments**:
 
 - `USERNAME`, `USER_UID`, `USER_GID` - User configuration
@@ -257,6 +261,8 @@ Installs Go and Go-based tools.
 Installs Node.js and related tools.
 
 **Purpose**: Provide Node.js runtime for development environments.
+
+**Uses**: [`node-install.sh`](#node-installsh)
 
 **Build Arguments**:
 
@@ -278,6 +284,8 @@ Installs Node.js and related tools.
 Extended builder with development tools and configuration.
 
 **Purpose**: Intermediate stage for development containers with Git, AWS CLI, and Terraform.
+
+**Uses**: [`git-install.sh`](#git-installsh)
 
 **Build Arguments**:
 
@@ -302,6 +310,8 @@ Creates the non-root development user.
 
 **Purpose**: Set up non-root user with sudo access and proper permissions.
 
+**Uses**: [`devbuilder-user-setup.sh`](#devbuilder-user-setupsh)
+
 **Key Features**:
 
 - Creates user with specified UID/GID
@@ -316,6 +326,8 @@ Variant of `devuser` with Homebrew pre-installed.
 
 **Purpose**: Development user with Homebrew available.
 
+**Uses**: [`devbuilder-user-setup.sh`](#devbuilder-user-setupsh)
+
 **Key Features**:
 
 - Inherits from devbuilder
@@ -327,6 +339,8 @@ Variant of `devuser` with Homebrew pre-installed.
 The primary base target for development containers.
 
 **Purpose**: Complete development environment ready for use.
+
+**Uses**: [`base-utils.sh`](#base-utilssh)
 
 **Build Arguments**:
 
@@ -354,6 +368,8 @@ Development container with Python, Node.js, and development tools.
 
 **Purpose**: Full-featured development environment for Python and Node.js projects.
 
+**Uses**: [`devtools-utils.sh`](#devtools-utilssh), [`python-install.sh`](#python-installsh)
+
 **Build Arguments**:
 
 - `NO_BREW_UPDATE` (default: `$DEV`) - Skip brew update if true
@@ -371,13 +387,15 @@ Development container with Python, Node.js, and development tools.
 - `NODEJS_HOME` - Node.js installation path
 - `RESET_ROOT_PASS` - Control root password reset at startup
 
-**Entrypoint**: `docker-entrypoint.sh` - Handles root password reset and displays fortune/cowsay
+**Entrypoint**: `docker-entrypoint.sh` - Handles root password reset and displays `fortune | cowsay`
 
 ### 12. **`cloudtools`** (`FROM base`)
 
 Development container with cloud CLI tools.
 
 **Purpose**: Container optimized for cloud infrastructure work.
+
+**Uses**: [`cloud-cli-tools.sh`](#cloud-cli-toolssh)
 
 **Key Features**:
 
@@ -391,6 +409,8 @@ Development container with cloud CLI tools.
 Minimal code-server container without development tools.
 
 **Purpose**: Lightweight web-based VS Code instance.
+
+**Uses**: [`codeserver-install.sh`](#codeserver-installsh), [`codeserver-utils.sh`](#codeserver-utilssh)
 
 **Build Arguments**:
 
@@ -423,6 +443,8 @@ Minimal code-server container without development tools.
 Full-featured code-server with development tools.
 
 **Purpose**: Web-based VS Code with Python, Node.js, and development tools pre-installed.
+
+**Uses**: [`codeserver-install.sh`](#codeserver-installsh), [`codeserver-utils.sh`](#codeserver-utilssh)
 
 **Key Features**:
 
@@ -525,7 +547,7 @@ and executed in the Dockerfile RUN commands.
 
 Installs base utilities required for development.
 
-**Used In**: base target
+**Used by**: [`base`](#10-base-from-dev_parent_image)
 
 **Packages Installed**:
 
@@ -538,7 +560,7 @@ Installs base utilities required for development.
 
 Installs common utilities and dependencies for the builder stage.
 
-**Used In**: builder target
+**Used by**: [`builder`](#3-builder-from-base_image)
 
 **Packages Installed**:
 
@@ -556,7 +578,7 @@ Installs common utilities and dependencies for the builder stage.
 
 Installs cloud provider CLI tools and infrastructure management tools.
 
-**Used In**: cloudtools target
+**Used by**: [`cloudtools`](#12-cloudtools-from-base)
 
 **Tools Installed**:
 
@@ -570,7 +592,7 @@ Installs cloud provider CLI tools and infrastructure management tools.
 
 Installs code-server (VS Code in the browser) from GitHub releases.
 
-**Used In**: codeserver, codeserver-minimal targets
+**Used by**: [`codeserver`](#14-codeserver-from-devtools), [`codeserver-minimal`](#13-codeserver-minimal-from-base)
 
 **Installation Methods**:
 
@@ -594,7 +616,7 @@ Installs code-server (VS Code in the browser) from GitHub releases.
 
 Utility configurations for code-server containers.
 
-**Used In**: codeserver, codeserver-minimal targets
+**Used by**: [`codeserver`](#14-codeserver-from-devtools), [`codeserver-minimal`](#13-codeserver-minimal-from-base)
 
 **Functions**:
 
@@ -606,7 +628,7 @@ Utility configurations for code-server containers.
 
 Creates and configures the non-root development user.
 
-**Used In**: devuser, brewuser targets
+**Used by**: [`devuser`](#8-devuser-from-devbuilder), [`brewuser`](#9-brewuser-from-devbuilder)
 
 **Key Functions**:
 
@@ -636,7 +658,7 @@ Creates and configures the non-root development user.
 
 Installs development tools and utilities.
 
-**Used In**: devtools target
+**Used by**: [`devtools`](#11-devtools-from-base)
 
 **Packages Installed**:
 
@@ -651,7 +673,7 @@ Installs development tools and utilities.
 
 Installs Git from source or uses system Git.
 
-**Used In**: devbuilder target
+**Used by**: [`devbuilder`](#7-devbuilder-from-builder)
 
 **Installation Options**:
 
@@ -673,7 +695,7 @@ Installs Git from source or uses system Git.
 
 Installs Go toolchain and Go-based utilities.
 
-**Used In**: gobuilder target
+**Used by**: [`gobuilder`](#5-gobuilder-from-builder)
 
 **Installation**:
 
@@ -694,7 +716,7 @@ Installs Go toolchain and Go-based utilities.
 
 Installs Node.js and npm.
 
-**Used In**: nodebuilder target
+**Used by**: [`nodebuilder`](#6-nodebuilder-from-builder)
 
 **Installation**:
 
@@ -716,7 +738,7 @@ Installs Node.js and npm.
 
 Installs Python and configures Python environment.
 
-**Used In**: devtools target
+**Used by**: [`devtools`](#11-devtools-from-base)
 
 **Installation Options**:
 
