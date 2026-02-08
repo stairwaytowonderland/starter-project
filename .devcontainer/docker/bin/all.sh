@@ -52,6 +52,9 @@ if ! . "${script_dir}/login.sh" "$REPO_NAMESPACE" "$REPO_NAME"; then
     exit 1
 fi
 
+# Force timezone to UTC (if unset) for consistent build timestamps
+export TIMEZONE=${TIMEZONE:-UTC}
+
 main() {
     # Newline-separated list of commands to run
     local all_commands=""

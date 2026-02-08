@@ -12,12 +12,12 @@
 	// 	"target": "<docker-build-target>", // e.g., "base", "devtools", "cloudtools"
 	// 	"context": "..",
 	// 	"args": {
+	// 		"USERNAME": "vscode"
 	// 		// "IMAGE_NAME": "debian",
 	// 		// "VARIANT": "bookworm-slim",
-	// 		"USERNAME": "vscode",
-	// 		"USER_UID": "1000",
-	// 		"USER_GID": "1000",
-	// 		"TIMEZONE": "America/Chicago"
+	// 		// "USER_UID": "1000",
+	// 		// "USER_GID": "1000",
+	// 		// "TIMEZONE": "America/Chicago",
 
 	// 		* Enable Homebrew installation and usage in the container (disabled by default)
 	// 		// "DEV_PARENT_IMAGE": "brewuser",
