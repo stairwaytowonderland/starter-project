@@ -615,7 +615,7 @@ The Dockerfile accepts several build arguments for customization:
 | `DEBIAN_FRONTEND`         | `noninteractive`                                             | builder     | Prevent interactive prompts            |
 | `BREW`                    | `/home/linuxbrew/.linuxbrew/bin/brew`                        | devbuilder  | Homebrew binary path                   |
 | `DEV`                     | Build arg value                                              | devbuilder  | Development mode flag                  |
-| `DEFAULT_WORKSPACE`       | `/workspaces`                                                | base        | Default workspace directory            |
+| `DEFAULT_WORKSPACE`       | `/home/$USERNAME/workspace`                                  | base        | Default workspace directory            |
 | `NODEJS_HOME`             | `/home/$USERNAME/.local/lib/nodejs`                          | devtools    | Node.js installation directory         |
 | `RESET_ROOT_PASS`         | `$DEFAULT_ROOT_PASS`                                         | devtools    | Control root password reset at startup |
 | `BIND_ADDR`               | Build arg value                                              | codeserver* | code-server bind address               |
@@ -963,7 +963,7 @@ Secure password generation utility.
 **Usage**:
 
 ```bash
-passgen [-<n>] [mode] [options] [positional_args]
+passgen [quantity] [mode] [options] [positional_args]
 ```
 
 **Quantity**: `-<n>`
@@ -974,7 +974,7 @@ Number of passwords to generate (default: 0; optional, numeric preceded by singl
 - `n=0` - This is the default quantity, and causes a single password to output without line breaks.
 - `n>0,n<=$DEFAULT_MAX_QTY` - Causes _n_ number of passwords to output, with line breaks after each.
 
-**Modes**:
+**Mode**:
 
 - `-s, --simple` - Simple password (default)
 - `-r, --requirements` - Password with character family requirements
