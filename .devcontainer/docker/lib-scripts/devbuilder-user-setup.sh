@@ -170,7 +170,7 @@ testd() {
 }
 
 alias unixtime='date +%s'
-alias utc='date -u +"%Y-%m-%dT%H:%M:%SZ"'
+alias utctime='date -u +"%Y-%m-%dT%H:%M:%SZ"'
 alias now='date "+%A, %B %d, %Y %I:%M:%S %p %Z"'
 
 alias ll='ls -alF'
