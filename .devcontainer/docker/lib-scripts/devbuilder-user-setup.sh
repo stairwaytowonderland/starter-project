@@ -19,6 +19,25 @@ comment_out_bash_aliases() {
 comment_out_bash_aliases /etc/skel/.bashrc
 comment_out_bash_aliases /root/.bashrc
 
+# Add parse_git_branch function and update PS1 in color_prompt section
+# shellcheck disable=SC2016
+update_ps1_with_git_branch() {
+    local file="$1"
+    if [ -f "$file" ]; then
+        # Insert parse_git_branch function before the color_prompt conditional
+        sed -i '/if[[:space:]]*\[[[:space:]]*"\$color_prompt"[[:space:]]*=[[:space:]]*yes[[:space:]]*\];[[:space:]]*then/i\
+# Function to display current git branch in prompt\
+parse_git_branch() { git branch --no-color 2> /dev/null | sed -e '"'"'/^[^*]/d'"'"' -e '"'"'s/* \\(.*\\)/ (\\1)/'"'"'; }\
+' "$file"
+        # Update PS1 lines within the color_prompt conditional to include git branch
+        sed -i '/if[[:space:]]*\[[[:space:]]*"\$color_prompt"[[:space:]]*=[[:space:]]*yes[[:space:]]*\];[[:space:]]*then/,/^else$/s/\(PS1=.*\)\(\\\$ \x27\)$/\1\$(tput setaf 2)\$(parse_git_branch)\$(tput sgr0)\2/' "$file"
+        # Update PS1 in the else block to include git branch
+        sed -i '/^else$/,/^fi$/s/\(PS1=.*\)\(\\\$ \x27\)$/\1\$(tput setaf 2)\$(parse_git_branch)\$(tput sgr0)\2/' "$file"
+    fi
+}
+update_ps1_with_git_branch /etc/skel/.bashrc
+update_ps1_with_git_branch /root/.bashrc
+
 cat << EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
 
 # Ensure Homebrew is properly configured
@@ -58,6 +77,7 @@ then
 fi
 EOF
 
+# shellcheck disable=SC2181
 cat << EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
 
 PATH="\$($FIXPATH)"
@@ -77,7 +97,6 @@ C_BRIGHT_YELLOW_BOLD="\033[1;93m" C_BRIGHT_BLUE_BOLD="\033[1;94m" \\
 C_BRIGHT_MAGENTA_BOLD="\033[1;95m" C_BRIGHT_CYAN_BOLD="\033[1;96m" \\
 C_WHITE="\033[97m" C_WHITE_BOLD="\033[1;97m" \\
 C_BLACK="\033[30m" C_BLACK_BOLD="\033[1;30m"
-
 # Standardizes error output
 # Usage: errcho "Error message here"
 errcho() { >&2 echo -e "\$@"; }
@@ -175,6 +194,28 @@ alias now='date "+%A, %B %d, %Y %I:%M:%S %p %Z"'
 
 alias ll='ls -alF'
 
+exit_status() {
+    local e="\$1"
+    if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null
+    then
+        if [ "\$e" -eq 0 ]
+        then
+            printf "%s%s%s " "\$(tput setaf 2)" "✔" "\$(tput sgr0)"
+        else
+            printf "%s%s (%s)%s " "\$(tput setaf 1)" "✘" "\$e" "\$(tput sgr0)"
+        fi
+    else
+        if [ "\$e" -eq 0 ]
+        then
+            printf "%s " "✔"
+        else
+            printf "%s (%s) " "✘" "\$e"
+        fi
+    fi
+}
+
+PS1='\$(exit_status \$?)'\$PS1
+
 # Additional alias definitions.
 if [ -f ~/.bash_aliases ]; then
     . ~/.bash_aliases
@@ -221,6 +262,39 @@ groupadd --gid "$USER_GID" "$USERNAME" \
 mkdir -p "/home/$USERNAME/.ssh" \
     && chown -R "$USERNAME:$USERNAME" "/home/$USERNAME/.ssh" \
     && chmod 700 "/home/$USERNAME/.ssh"
+
+cat << EOF | tee -a "/home/$USERNAME/.bash_aliases" /root/.bash_aliases > /dev/null
+# Handle exit
+quit() { printf "🤖 %s 🤖\n" "Klaatu barada nikto"; }
+
+# Handle cancelled operations (e.g., Ctrl+C)
+control_c() {
+  local err="\$?"
+  printf "\n⛔ \${C_RED_BOLD}✗\${C_DEFAULT} \${C_RED}(%s)\${C_DEFAULT} \${C_BOLD}%s\${C_DEFAULT} ⛔" "\$err" "Operation cancelled by user"
+  return \$err;
+}
+
+trap quit EXIT
+trap control_c INT
+
+cat <<'TUX'
+           _..._
+         .'     '.
+        /  _   _  \\
+        | (o)_(o) |
+         \\(     ) /
+         //'._.'\\\ \\
+        //   .   \\\ \\
+       ||   .     \\\ \\
+       |\\   :     / |
+       \\\ \`) '   (\`  /_
+     _)\`\`".____,.'"' (_
+     )     )'--'(     (
+      '---\`      \`---'
+TUX
+EOF
+
+chown "$USERNAME:$USERNAME" "/home/$USERNAME/.bash_aliases"
 
 LEVEL='√' $LOGGER "Done! User '$USERNAME' created successfully."
 
