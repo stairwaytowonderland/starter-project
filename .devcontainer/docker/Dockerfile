@@ -302,9 +302,8 @@ RUN sed -i "s|\$LOGGER|$LOGGER|g" /usr/local/bin/post-start \
 # Default user workspace directory
 ARG DEFAULT_WORKSPACE=/home/$USERNAME/workspace
 ENV DEFAULT_WORKSPACE=$DEFAULT_WORKSPACE \
-    # Set default to not reset root password, in case devcontainer inherits from devtools or cloudtools
-    # Precautionary measure to avoid interactive prompt when running devcontainer
-    RESET_ROOT_PASS=false
+    # Set IGNOREEOF to prevent accidental EOF (`CTRL+D`) from closing the container when running in interactive mode
+    IGNOREEOF=1
 
 COPY --chmod=755 .devcontainer/docker/utils/healthcheck.sh /usr/local/bin/healthcheck.sh
 
@@ -342,12 +341,6 @@ CMD ["healthcheck.sh"]
 
 
 FROM base AS devtools
-
-# Whether to reset root password at container startup
-# (true/false; default: $DEFAULT_ROOT_PASS build argument)
-ENV RESET_ROOT_PASS=$DEFAULT_ROOT_PASS
-# Needed to properly reference target version of python3
-# ENV PATH="/home/linuxbrew/.linuxbrew/opt/python3/bin:$PATH"
 
 # Copy library scripts
 COPY --chmod=755 .devcontainer/docker/lib-scripts/devtools-*.sh \
@@ -411,9 +404,10 @@ RUN if type "$BREW" > /dev/null 2>&1; then \
 COPY --chmod=755 <<EOF /usr/local/bin/docker-entrypoint.sh
 #!/bin/sh
 
-set -e
+set -eu
 
-if [ "\$RESET_ROOT_PASS" = "true" ] ; then
+if [ "\${RESET_ROOT_PASS:-$DEFAULT_ROOT_PASS}" = "true" ]
+then
   printf "\033[1m%s\033[0m\n" "Updating root password ..."
   sudo passwd root
 fi
