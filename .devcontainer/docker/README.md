@@ -605,28 +605,62 @@ The Dockerfile accepts several build arguments for customization:
 
 ### Environment Variables Set in Dockerfile
 
-| Variable                  | Value                                                        | Target      | Description                            |
-| ------------------------- | ------------------------------------------------------------ | ----------- | -------------------------------------- |
-| `PASSGEN`                 | Build arg value                                              | filez       | Password generator script path         |
-| `CODESERVER_PASS_LENGTH`  | `$DEFAULT_PASS_LENGTH`                                       | filez       | code-server password length            |
-| `CODESERVER_PASS_CHARSET` | `$DEFAULT_PASS_CHARSET`                                      | filez       | code-server password character set     |
-| `TZ`                      | `$TIMEZONE`                                                  | builder     | Timezone                               |
-| `LANG`, `LC_ALL`          | `C.UTF-8`                                                    | builder     | Locale settings                        |
-| `DEBIAN_FRONTEND`         | `noninteractive`                                             | builder     | Prevent interactive prompts            |
-| `BREW`                    | `/home/linuxbrew/.linuxbrew/bin/brew`                        | devbuilder  | Homebrew binary path                   |
-| `DEV`                     | Build arg value                                              | devbuilder  | Development mode flag                  |
-| `DEFAULT_WORKSPACE`       | `/home/$USERNAME/workspace`                                  | base        | Default workspace directory            |
-| `NODEJS_HOME`             | `/home/$USERNAME/.local/lib/nodejs`                          | devtools    | Node.js installation directory         |
-| `RESET_ROOT_PASS`         | `$DEFAULT_ROOT_PASS`                                         | devtools    | Control root password reset at startup |
-| `BIND_ADDR`               | Build arg value                                              | codeserver* | code-server bind address               |
-| `CODE_SERVER_WORKSPACE`   | `$DEFAULT_WORKSPACE`                                         | codeserver* | code-server workspace path             |
-| `CODE_SERVER_CONFIG`      | `/home/$USERNAME/.config/code-server/config.yaml`            | codeserver* | code-server config path                |
-| `CODE_SERVER_EXTENSIONS`  | `$DEFAULT_WORKSPACE/.code-server/extensions/extensions.json` | codeserver* | Extensions config                      |
-| `DEBUG`                   | `false`                                                      | codeserver* | Debug mode for code-server             |
+| Variable                 | Value                                                        | Target      | Description                            |
+| ------------------------ | ------------------------------------------------------------ | ----------- | -------------------------------------- |
+| `LOGGER`                 | `/usr/local/bin/logger.sh`                                   | builder     | Logger script path                     |
+| `TZ`                     | `$TIMEZONE`                                                  | builder     | Timezone                               |
+| `LANG`, `LC_ALL`         | `C.UTF-8`                                                    | builder     | Locale settings                        |
+| `DEBIAN_FRONTEND`        | `noninteractive`                                             | builder     | Prevent interactive prompts            |
+| `PASSGEN`                | `/usr/local/bin/passgen.sh`                                  | builder     | Password generator script path         |
+| `DEFAULT_PASS_LENGTH`    | `32`                                                         | builder     | Default password length                |
+| `DEFAULT_PASS_CHARSET`   | `[:graph:]`                                                  | builder     | Default password character set         |
+| `PATH`                   | `/usr/local/lib/nodejs/bin:$PATH`                            | nodebuilder | Node.js binaries in PATH               |
+| `NODEJS_HOME`            | `/usr/local/lib/nodejs`                                      | nodebuilder | Node.js installation directory         |
+| `PATH`                   | `/home/$USERNAME/.local/bin:$PATH`                           | devbuilder  | User local binaries in PATH            |
+| `PYTHON_VERSION`         | Build arg value                                              | devbuilder  | Python version to install              |
+| `DEV`                    | Build arg value                                              | devbuilder  | Development mode flag                  |
+| `DEFAULT_WORKSPACE`      | `/home/$USERNAME/workspace`                                  | base        | Default workspace directory            |
+| `IGNOREEOF`              | `1`                                                          | base        | Prevent EOF (Ctrl+D) from exiting bash |
+| `PATH`                   | `/home/$USERNAME/.local/lib/nodejs/bin:$PATH`                | devtools    | Node.js binaries in PATH               |
+| `NODEJS_HOME`            | `/home/$USERNAME/.local/lib/nodejs`                          | devtools    | Node.js installation directory         |
+| `BIND_ADDR`              | `0.0.0.0:13337`                                              | codeserver* | code-server bind address               |
+| `CODE_SERVER_WORKSPACE`  | `$DEFAULT_WORKSPACE`                                         | codeserver* | code-server workspace path             |
+| `CODE_SERVER_CONFIG`     | `/home/$USERNAME/.config/code-server/config.yaml`            | codeserver* | code-server config path                |
+| `CODE_SERVER_EXTENSIONS` | `$DEFAULT_WORKSPACE/.code-server/extensions/extensions.json` | codeserver* | Extensions config                      |
+| `DOWNLOAD_STANDALONE`    | `true`                                                       | codeserver* | Download standalone code-server        |
+| `DEBUG`                  | `false`                                                      | codeserver* | Debug mode for code-server             |
 
 > [!NOTE]
 > The asterisk (*) notation (e.g., `codeserver*`) indicates a wildcard. In this case that the build argument or
 > environment variable applies to both the `codeserver` and `codeserver-minimal` build targets.
+
+### Additional Runtime Environment Variables
+
+These environment variables can be set at container runtime (via `docker run -e VARIABLE=value` or docker-compose) to
+control container behavior. They are used by runtime scripts like entrypoints and utilities.
+
+| Variable          | Default | Used By              | Description                                                                         |
+| ----------------- | ------- | -------------------- | ----------------------------------------------------------------------------------- |
+| `RESET_ROOT_PASS` | `false` | docker-entrypoint.sh | Prompt to reset root password on container startup (devtools target)                |
+| `EXIT_ON_EOF`     | `false` | healthcheck.sh       | Allow Ctrl+D (EOF) to exit the container when running interactively (base+ targets) |
+| `DEBUG`           | `false` | start-code-server.sh | Enable debug logging for code-server startup (codeserver* targets)                  |
+| `IGNOREEOF`       | `1`     | bash                 | Number of consecutive Ctrl+D presses required to exit bash (set in Dockerfile ENV)  |
+
+**Examples:**
+
+```bash
+# Run with root password reset enabled
+docker run -it -e RESET_ROOT_PASS=true ghcr.io/user/image:devtools
+
+# Run with EOF exit enabled for testing
+docker run -it -e EXIT_ON_EOF=true ghcr.io/user/image:base
+
+# Run code-server with debug logging
+docker run -it -e DEBUG=true ghcr.io/user/image:codeserver
+
+# Disable Ctrl+D protection (allow single Ctrl+D to exit)
+docker run -it -e IGNOREEOF=0 ghcr.io/user/image:base
+```
 
 > [!NOTE]
 > As of Ubuntu 24+, a non-root `ubuntu` user (UID 1000) exists by default.
