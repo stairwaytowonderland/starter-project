@@ -25,6 +25,8 @@ A detailed guide to the multi-stage Dockerfile, build targets, library scripts, 
         ├── helpers/                  # Helper "scripts" with useful functions;
         │                               meant to be sourced from other scripts
         ├── lib-scripts/              # Container installer scripts
+        ├── profile.d/                # Profile includes
+        │   └── bash_colors.sh
         ├── scripts/                  # Container user scripts
         │   ├── post-start.sh
         │   └── start-code-server.sh

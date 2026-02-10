@@ -112,19 +112,29 @@ com+=("--target" "${DOCKER_TARGET}")
 com+=("-t" "${build_tag}")
 com+=("--platform=$(dedupe "${PLATFORM:-$DEFAULT_PLATFORM}")")
 # The `debian:bookworm-slim` image provides a minimal base for development containers
-com+=("--build-arg" "IMAGE_NAME=${BASE_IMAGE_NAME}")
-com+=("--build-arg" "VARIANT=${BASE_IMAGE_VARIANT}")
+com_arg=()
+com_arg+=("--build-arg" "IMAGE_NAME=${BASE_IMAGE_NAME}")
+com_arg+=("--build-arg" "VARIANT=${BASE_IMAGE_VARIANT}")
 if [ -n "$REMOTE_USER" ]; then
-    com+=("--build-arg" "USERNAME=${REMOTE_USER}")
+    com_arg+=("--build-arg" "USERNAME=${REMOTE_USER}")
 fi
-# com+=("--build-arg" "PYTHON_VERSION=${PYTHON_VERSION:-latest}")
-com+=("--build-arg" "TIMEZONE=$(zoneinfo)")
-com+=("--build-arg" "DEV=${DEV:-false}")
+# com_arg+=("--build-arg" "PYTHON_VERSION=${PYTHON_VERSION:-latest}")
+com_arg+=("--build-arg" "TIMEZONE=$(zoneinfo)")
+com_arg+=("--build-arg" "DEV=${DEV:-false}")
+# Automatically pass build arguments prefixed with DOCKER_BUILD_
+# Strip the prefix and pass the variable to docker build
+while IFS='=' read -r name value; do
+    if [[ $name == DOCKER_BUILD_*   ]]; then
+        arg_name="${name#DOCKER_BUILD_}"
+        com_arg+=("--build-arg" "${arg_name}=${value}")
+    fi
+done < <(env)
 for arg in "$@"; do
     if [ "$arg" != "$BUILD_CONTEXT" ]; then
-        com+=("$arg")
+        com_arg+=("$arg")
     fi
 done
+com+=("${com_arg[@]}")
 com+=("$BUILD_CONTEXT")
 
 set -- "${com[@]}"

@@ -102,6 +102,9 @@ echo "(*) Running Docker container for ${REMOTE_USER}..." >&2
 com=(docker run -it --rm)
 # TZ not needed, but included for reference and clarity
 com_env=()
+if [ -n "${IGNOREEOF-}" ]; then
+    com_env+=("-e" "IGNOREEOF=${IGNOREEOF}")
+fi
 com_env+=("-e" "TZ=${TIMEZONE}")
 com_env+=("-e" "TERM=${TERM}")
 if [ "${DEV:-false}" = "true" ]; then
@@ -109,6 +112,14 @@ if [ "${DEV:-false}" = "true" ]; then
     com_env+=("-e" "RESET_ROOT_PASS=${RESET_ROOT_PASS:-false}")
     com_env+=("-e" "DEBUG=${DEBUG:-false}")
 fi
+# Automatically pass environment variables prefixed with DOCKER_VAR_
+# Strip the prefix and pass the variable to the container
+while IFS='=' read -r name value; do
+    if [[ $name == DOCKER_RUN_*   ]]; then
+        var_name="${name#DOCKER_RUN_}"
+        com_env+=("-e" "${var_name}=${value}")
+    fi
+done < <(env)
 while [ $# -gt 0 ]; do
     case "$1" in
         -e)

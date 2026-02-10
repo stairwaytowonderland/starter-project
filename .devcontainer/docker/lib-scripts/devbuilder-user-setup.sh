@@ -16,10 +16,13 @@ comment_out_bash_aliases() {
         sed -i -E '/if[[:space:]]+\[[[:space:]]+-f[[:space:]]+~\/\.bash_aliases[[:space:]]*\];?[[:space:]]*then/,/^[[:space:]]*fi[[:space:]]*$/s/^/# /' "$file"
     fi
 }
-comment_out_bash_aliases /etc/skel/.bashrc
-comment_out_bash_aliases /root/.bashrc
 
 # Add parse_git_branch function and update PS1 in color_prompt section
+# - Find PS1 lines ending with \$ '
+#   - Capture the PS1 prefix (PS1=.*) and the trailing \$ ' (represented as \\\$ \x27)
+#     - \\\$ - Matches a literal \$ in the file
+#     - \x27 - Hexadecimal escape for a single quote (') character
+# - Insert $(parse_git_branch) with blue color (tput setaf 4) before the trailing \$ '
 # shellcheck disable=SC2016
 update_ps1_with_git_branch() {
     local file="$1"
@@ -27,16 +30,19 @@ update_ps1_with_git_branch() {
         # Insert parse_git_branch function before the color_prompt conditional
         sed -i '/if[[:space:]]*\[[[:space:]]*"\$color_prompt"[[:space:]]*=[[:space:]]*yes[[:space:]]*\];[[:space:]]*then/i\
 # Function to display current git branch in prompt\
-parse_git_branch() { git branch --no-color 2> /dev/null | sed -e '"'"'/^[^*]/d'"'"' -e '"'"'s/* \\(.*\\)/ (\\1)/'"'"'; }\
+parse_git_branch() { [ -t 1 ] || git branch --no-color 2> /dev/null | sed -e '"'"'/^[^*]/d'"'"' -e '"'"'s/* \\(.*\\)/ (\\1)/'"'"'; }\
 ' "$file"
         # Update PS1 lines within the color_prompt conditional to include git branch
-        sed -i '/if[[:space:]]*\[[[:space:]]*"\$color_prompt"[[:space:]]*=[[:space:]]*yes[[:space:]]*\];[[:space:]]*then/,/^else$/s/\(PS1=.*\)\(\\\$ \x27\)$/\1\$(tput setaf 2)\$(parse_git_branch)\$(tput sgr0)\2/' "$file"
+        sed -i '/if[[:space:]]*\[[[:space:]]*"\$color_prompt"[[:space:]]*=[[:space:]]*yes[[:space:]]*\];[[:space:]]*then/,/^else$/s/\(PS1=.*\)\(\\\$ \x27\)$/\1\$(tput setaf 4)\$(parse_git_branch)\$(tput sgr0)\2/' "$file"
         # Update PS1 in the else block to include git branch
         sed -i '/^else$/,/^fi$/s/\(PS1=.*\)\(\\\$ \x27\)$/\1\$(parse_git_branch)\2/' "$file"
     fi
 }
-update_ps1_with_git_branch /etc/skel/.bashrc
-update_ps1_with_git_branch /root/.bashrc
+
+for f in /etc/skel/.bashrc /root/.bashrc; do
+    comment_out_bash_aliases "$f"
+    update_ps1_with_git_branch "$f"
+done
 
 cat << EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
 
@@ -97,6 +103,65 @@ C_BRIGHT_YELLOW_BOLD="\033[1;93m" C_BRIGHT_BLUE_BOLD="\033[1;94m" \\
 C_BRIGHT_MAGENTA_BOLD="\033[1;95m" C_BRIGHT_CYAN_BOLD="\033[1;96m" \\
 C_WHITE="\033[97m" C_WHITE_BOLD="\033[1;97m" \\
 C_BLACK="\033[30m" C_BLACK_BOLD="\033[1;30m"
+
+alias unixtime='date +%s'
+alias utctime='date -u +"%Y-%m-%dT%H:%M:%SZ"'
+alias now='date "+%A, %B %d, %Y %I:%M:%S %p %Z"'
+
+alias ll='ls -alF'
+
+# Handle exit
+__quit() { printf "🤖 %s 🤖\n" "Klaatu barada nikto" >&2; }
+
+# Handle cancelled operations (e.g., Ctrl+C)
+__control_c() {
+    local err="\$?"
+    printf "\n⛔ \${C_RED}\${C_BOLD}✗\${C_DEFAULT} \${C_RED}(%s)\${C_DEFAULT} \${C_RED}\${C_BOLD}%s\${C_DEFAULT} ⛔" "\$err" "Operation cancelled by user" >&2
+    return \$err;
+}
+
+# Determine if color is supported
+__color_enabled() {
+    local color_prompt=
+    case "\$TERM" in
+        xterm-color|*-256color) color_prompt=yes ;;
+        *) return 1 ;;
+    esac
+    if [ "\$color_prompt" = yes ]
+    then
+        if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null
+        then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+__exit_status() {
+    local icon_success="✔"
+    local icon_failure="✘"
+    local icon_debian="꩜"
+    if __color_enabled
+    then
+        if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null
+        then
+            if [ "\$1" -eq 0 ]
+            then
+                printf "%s%s%s " "\$(tput setaf 2)" "\$icon_debian" "\$(tput sgr0)"
+            else
+                printf "%s%s (%s)%s " "\$(tput setaf 1)" "\$icon_debian" "\$1" "\$(tput sgr0)"
+            fi
+        fi
+    else
+        if [ "\$1" -eq 0 ]
+        then
+            printf "%s " "\$icon_success"
+        else
+            printf "%s (%s) " "\$icon_failure" "\$1"
+        fi
+    fi
+}
+
 # Standardizes error output
 # Usage: errcho "Error message here"
 errcho() { >&2 echo -e "\$@"; }
@@ -180,32 +245,53 @@ testd() {
 
 # OS Detection
 os() {
+    local os arch
+    os="\$(uname -s | lowercase)"
+    arch="\$(uname -m)"
+    if [ -n "\$arch" ]
+    then
+        case "\$arch" in
+            x86_64|amd64) os="\${os}-amd64" ;;
+            aarch64|arm64) os="\${os}-arm64" ;;
+            *) os="\${os}-\${arch}" ;;
+        esac
+    fi
     if [ -r /etc/os-release ]
     then
-        (. /etc/os-release; echo "\$(uname -s | lowercase):\${ID-}-\${VERSION_CODENAME-}")
-    else
-        errcho "Unable to determine OS: /etc/os-release not found"
+        # os="\$(. /etc/os-release; echo "\${os}:\${ID-}-\${VERSION_CODENAME-}:\${VERSION_ID-}")"
+        while IFS='=' read -r name value; do
+            case "\$name" in
+                ID) os_id="\${value//\"/}";;
+                VERSION_ID) os_version_id="\${value//\"/}";;
+                VERSION_CODENAME) os_codename="\${value//\"/}";;
+            esac
+        done < /etc/os-release
+        os="\${os}:\${os_id}-\${os_codename}:\${os_version_id}"
     fi
+    echo "\${os}"
 }
-os_type() {
-    os | cut -d: -f1
-}
-os_id() {
-    os | cut -d: -f2
-}
-os_codename() {
-    os | cut -d: -f3
-}
+os_platform() { os | cut -d: -f1; }
+os_type() { os_platform | cut -d- -f1; }
+os_arch() { os_platform | cut -d- -f2; }
+os_name() { os | cut -d: -f2; }
+os_id() { os_name | cut -d- -f1; }
+os_codename() { os_name | cut -d- -f2; }
+os_version() { os | cut -d: -f3; }
 
-alias unixtime='date +%s'
-alias utctime='date -u +"%Y-%m-%dT%H:%M:%SZ"'
-alias now='date "+%A, %B %d, %Y %I:%M:%S %p %Z"'
-
-alias ll='ls -alF'
+if [ -t 1 ]
+then
+    PS1='\$(__exit_status \$?)'\$PS1
+fi
 
 # Additional alias definitions.
-if [ -f ~/.bash_aliases ]; then
+if [ -f ~/.bash_aliases ]
+then
     . ~/.bash_aliases
+fi
+
+if [ -f /etc/profile.d/bash_colors.sh ] && ! shopt login_shell >/dev/null
+then
+    . /etc/profile.d/bash_colors.sh
 fi
 EOF
 
@@ -251,60 +337,6 @@ mkdir -p "/home/$USERNAME/.ssh" \
     && chmod 700 "/home/$USERNAME/.ssh"
 
 cat << EOF | tee -a "/home/$USERNAME/.bash_aliases" /root/.bash_aliases > /dev/null
-# User-specific aliases
-
-# Determine if color is supported
-__color_enabled() {
-    local color_prompt=
-    case "\$TERM" in
-        xterm-color|*-256color) color_prompt=yes ;;
-        *) return 1 ;;
-    esac
-    if [ "\$color_prompt" = yes ]
-    then
-        if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null
-        then
-            return 0
-        fi
-    fi
-    return 1
-}
-
-# Handle exit
-__quit() { printf "🤖 %s 🤖\n" "Klaatu barada nikto"; }
-
-# Handle cancelled operations (e.g., Ctrl+C)
-__control_c() {
-    local err="\$?"
-    printf "\n⛔ \${C_RED_BOLD}✗\${C_DEFAULT} \${C_RED}(%s)\${C_DEFAULT} \${C_BOLD}%s\${C_DEFAULT} ⛔" "\$err" "Operation cancelled by user"
-    return \$err;
-}
-
-__exit_status() {
-    local icon_success="✔"
-    local icon_failure="✘"
-    local icon_debian="꩜"
-    if __color_enabled
-    then
-        if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null
-        then
-            if [ "\$1" -eq 0 ]
-            then
-                printf "%s%s%s " "\$(tput setaf 2)" "\$icon_debian" "\$(tput sgr0)"
-            else
-                printf "%s%s (%s)%s " "\$(tput setaf 1)" "\$icon_debian" "\$1" "\$(tput sgr0)"
-            fi
-        fi
-    else
-        if [ "\$1" -eq 0 ]
-        then
-            printf "%s " "\$icon_success"
-        else
-            printf "%s (%s) " "\$icon_failure" "\$1"
-        fi
-    fi
-}
-
 tux() {
     cat <<'TUX'
            _..._
@@ -371,16 +403,15 @@ then
         trap __quit EXIT
         trap __control_c INT
     fi
-    PS1='\$(__exit_status \$?)'\$PS1
-    printf "👋 Welcome to your development container...\n"
+    printf "👋 Welcome to your development container...\n" >&2
     if [ "\${SHOW_TUX:-$SHOW_TUX}" = "true" ]
     then
-        tux
+        tux >&2
     elif [ "\${SHOW_TUX_ALT:-$SHOW_TUX_ALT}" = "true" ]
     then
-        tux_alt
+        tux_alt >&2
     else
-        printf "🐧 %s 🐧\n" "Happy coding!"
+        printf "🐧 %s 🐧\n" "Happy coding!" >&2
     fi
 fi
 EOF

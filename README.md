@@ -14,6 +14,7 @@ Use this repo as a starting point for other new projects.
 │   │   ├── helpers/          # Helper "scripts" with useful functions;
 │   │   │                       meant to be sourced from other scripts
 │   │   ├── lib-scripts/      # Container installer scripts
+│   │   ├── profile.d/        # Profile includes
 │   │   ├── scripts/          # Container user scripts
 │   │   └── utils/            # Container utility scripts
 │   ├── devcontainer.json     # VS Code Dev Container configuration

@@ -305,8 +305,6 @@ ENV DEFAULT_WORKSPACE=$DEFAULT_WORKSPACE \
     # Set IGNOREEOF to prevent accidental EOF (`CTRL+D`) from closing the container when running in interactive mode
     IGNOREEOF=1
 
-COPY --chmod=755 .devcontainer/docker/utils/healthcheck.sh /usr/local/bin/healthcheck.sh
-
 # Switch to non-root user
 USER $USERNAME
 WORKDIR $DEFAULT_WORKSPACE
@@ -324,6 +322,9 @@ RUN if ! type pre-commit >/dev/null 2>&1 && [ "$PRE_COMMIT_ENABLED" = "true" ]; 
     fi; \
   fi \
   && $PASSGEN -s 16 '[:alpha:]' > /.healthcheck
+
+COPY .devcontainer/docker/profile.d/bash_colors.sh /etc/profile.d/bash_colors.sh
+COPY --chmod=755 .devcontainer/docker/utils/healthcheck.sh /usr/local/bin/healthcheck.sh
 
 # docker inspect --format='{{json .State.Health}}' <container_id> | jq
 HEALTHCHECK --interval=5s --timeout=3s --start-period=1s --retries=3 \
