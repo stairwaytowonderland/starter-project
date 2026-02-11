@@ -91,7 +91,6 @@ If using the `build` configuration, the `image` configuration must be disabled.
   syntax with environment and pre-defined variables. **Requires `workspaceFolder` to be set**.
 - **workspaceFolder** (not shown; set by default): Sets the default path that devcontainer tools should open when
   connecting to the container.
-  Defaults to the automatic source code mount location. (if not set, defaults to the `WORKDIR` specified in the Dockerfile).
   Currently both are set to `/home/{remoteUser}/workspace`. **Requires `workspaceMount` to be set**.
 
   > [!NOTE]

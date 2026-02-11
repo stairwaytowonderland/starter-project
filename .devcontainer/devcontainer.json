@@ -33,8 +33,7 @@
 	// Mount the workspace folder
 	// https://code.visualstudio.com/remote/advancedcontainers/change-default-source-mount
 	// If remoteUser is commented out to use root, use /root instead of /home/vscode
-	// The "workspaceFolder" property is optional; if not specified, the default is the WORKDIR in the Dockerfile
-	// "workspaceFolder": "/home/vscode/workspace",
+	"workspaceFolder": "/home/vscode/workspace",
 	"workspaceMount": "source=${localWorkspaceFolder},target=${containerWorkspaceFolder},type=bind,consistency=cached",
 	// Mount SSH keys
 	"mounts": [
@@ -111,7 +110,13 @@
 
 	// Set container-specific environment variables
 	"remoteEnv": {
-		"PATH": "/home/linuxbrew/.linuxbrew/bin:${containerEnv:PATH}"
+		"PATH": "/home/linuxbrew/.linuxbrew/bin:${containerEnv:PATH}",
+		"IGNOREEOF": "2",
+		"PARTY_PS1": "true",
+		"PS1_USER_COLOR": "38;5;039",
+		"PS1_AT_COLOR": "38;5;202",
+		"PS1_ERROR_COLOR": "38;5;197",
+		"PS1_SUCCESS_COLOR": "38;5;046"
 	},
 
 	// Configure tool-specific properties
