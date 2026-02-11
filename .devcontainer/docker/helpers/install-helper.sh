@@ -5,7 +5,7 @@ VERSION="${VERSION:-latest}"
 export DEBIAN_FRONTEND=noninteractive
 
 __get_platform() {
-    PLATFORM="$(uname -sm | tr '[:upper:]' '[:lower:]')"
+    PLATFORM="$(uname -s | tr '[:upper:]' '[:lower:]') $(dpkg --print-architecture)"
     echo "$PLATFORM"
 }
 
@@ -32,14 +32,14 @@ __get_arch() {
     _platform="${1:-$(__get_platform)}"
     _platform_arch="${_platform##* }"
     case "$_platform_arch" in
-        x86_64)
+        x86_64 | amd64)
             _download_arch=amd64
             ;;
-        aarch64)
+        aarch64 | arm64)
             _download_arch=arm64
             ;;
         *)
-            LEVEL=error $LOGGER "Unsupported architecture: $_download_arch"
+            LEVEL=error $LOGGER "Unsupported architecture: $_platform_arch"
             return 1
             ;;
     esac
@@ -59,6 +59,13 @@ update_and_install() {
     install_packages "$@"
 }
 
+remove_packages() {
+    # shellcheck disable=SC2086
+    LEVEL='ƒ' $LOGGER "Removing the following packages: "$*
+    # shellcheck disable=SC2086,SC2048
+    apt-get -y remove $*
+}
+
 # Usage example for defining packages to install:
 #
 # PACKAGES_TO_INSTALL="${PACKAGES_TO_INSTALL% }$(
@@ -73,10 +80,84 @@ update_and_install() {
 #     && update_and_install "$PACKAGES_TO_INSTALL" \
 #     || echo "Warning: No packages to install."
 
+GITHUB_API_HEADER_ACCEPT="Accept: application/vnd.github.v3+json"
+GITHUB_TOKEN="${GITHUB_TOKEN-}"
+
 __check_semver() {
     _version="${1-}"
 
-    [ "$(echo "${_version}" | grep -o '\.' | wc -l)" = "2" ] || return 1
+    [ "$(echo "${_version}" | grep -o '\.' | wc -l)" = "2" ] && echo "$_version" >&2 || return 1
+}
+
+# __get_semver() {
+#     _version="${1-}"
+
+#     __check_semver "$_version" > /dev/null 2>&1 \
+#         && echo "$_version" 2> /dev/null 2>&1 \
+#         || return $?
+# }
+
+# GITHUB_TOKEN="YOUR_GITHUB_PAT"
+# AUTH_HEADER="Authorization: token ${GITHUB_TOKEN}"
+# Use `git ls-remote --tags` for public repositories to avoid hitting API rate limits, and fallback to API if needed or if authentication is required.
+# (see `find_version_from_git_tags`, below)
+__rest_call() {
+    if [ -n "$GITHUB_TOKEN" ]; then
+        curl -sSL --include "$1" -H "${GITHUB_API_HEADER_ACCEPT}" -H "Authorization: token ${GITHUB_TOKEN}"
+    else
+        curl -sSL --include "$1" -H "${GITHUB_API_HEADER_ACCEPT}"
+    fi
+}
+
+__rest_github_tags_paged() {
+    URL="https://api.github.com/repos/${1}/tags?per_page=100"
+
+    page=0
+    max_pages="${2:-10}"  # safety to prevent long running loops
+    type __rest_call || return 1
+    while [ ! -z "$URL" ] && [ $page -lt "$max_pages" ]; do
+        response=$(__rest_call "$URL")
+        body=$(echo "$response" | sed -E '1,/^\r?$/d')
+        tags=$(echo "$body" | grep -oP '"name":\s*"v\K[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' | sort -ruV)
+
+        echo "$tags"
+
+        # Extract the 'Link' header for the next page URL
+        # https://docs.github.com/en/rest/using-the-rest-api/using-pagination-in-the-rest-api?apiVersion=2022-11-28
+        next_url=$(echo "$response" | grep -F 'link: <' | sed -e 's/link: <\([^>]*\)>.*rel="next".*/\1/' -e 't' -e 'd')
+
+        URL="$next_url"
+        page=$((page + 1))
+    done | sort -ruV
+
+    unset URL response body tags next_url
+}
+
+# https://github.com/devcontainers/features/blob/main/src/python/install.sh
+__find_version_from_git_tags() {
+    repository=$1
+    requested_version=${2:-latest}
+    [ "${requested_version}" != "none" ] || return
+    url="https://github.com/${repository}"
+    prefix=${3:-"tags/v"}
+    separator=${4:-"."}
+    last_part_optional=${5:-"false"}
+    if [ "$(echo "${requested_version}" | grep -o "." | wc -l)" != "2" ]; then
+        # escaped_separator=${separator//./\\.}
+        escaped_separator=$(printf '%s\n' "$separator" | sed "s/[][\.*^$(){}?+|/]/\\\&/g")
+        if [ "${last_part_optional}" = "true" ]; then
+            last_part="(${escaped_separator}[0-9]+)?"
+        else
+            last_part="${escaped_separator}[0-9]+"
+        fi
+        regex="$(echo "$prefix" | sed 's|\/|\\/|g')\\K[0-9]+${escaped_separator}[0-9]+${last_part}$"
+        version_list="$(git ls-remote --tags "${url}" | grep -oP "${regex}" | tr -d "$prefix" | tr "${separator}" "." | sort -rV)"
+        if [ "${requested_version}" = "latest" ] || [ "${requested_version}" = "current" ] || [ "${requested_version}" = "lts" ]; then
+            VERSION="$(echo "${version_list}" | head -n 1)"
+        else
+            VERSION="$(echo "${version_list}" | grep -E -m 1 "^$(printf '%s' "$requested_version" | sed "s/[.[\*^$(){}?+|/]/\\\&/g")([\\.\\s]|$)")"
+        fi
+    fi
 }
 
 __get_version() {
@@ -125,6 +206,7 @@ __set_url_parts() {
         DOWNLOAD_URL_PREFIX="${_url_prefix}"
     fi
 
+    # ? swap for __find_version_from_git_tags?
     _download_version="$(__get_version "$_github_repo" "$_version")" || return $?
     DOWNLOAD_VERSION="${_version_prefix}${_download_version#"$_version_prefix"}"
     DOWNLOAD_PLATFORM="$(uname -sm | tr '[:upper:]' '[:lower:]')"
