@@ -11,10 +11,37 @@ LEVEL='*' $LOGGER "Setting up bashrc and profile for new users and root ..."
 
 # Comment out the bash_aliases sourcing block in /etc/skel/.bashrc
 comment_out_bash_aliases() {
+    set -u
     local file="$1"
     if [ -f "$file" ]; then
         sed -i -E '/if[[:space:]]+\[[[:space:]]+-f[[:space:]]+~\/\.bash_aliases[[:space:]]*\];?[[:space:]]*then/,/^[[:space:]]*fi[[:space:]]*$/s/^/# /' "$file"
     fi
+    set +u
+}
+
+# Extract leading comments from a file and remove them from the original
+# Usage: extract_leading_comments <file>
+# Outputs the leading comments and blank lines to stdout, and removes them from the file
+extract_leading_comments() {
+    set -u
+    local file="$1"
+    # Extract lines from the beginning that are comments or blank lines
+    sed -n '/^[[:space:]]*#/p; /^[[:space:]]*$/p; /^[[:space:]]*[^#[:space:]]/q' "$file"
+    # Remove the leading comments and blank lines from the file
+    sed -i '/^[[:space:]]*[^#[:space:]]/,$!d' "$file"
+    set +u
+}
+
+# Insert content at the beginning of a file
+# Usage: insert_at_beginning <file> < <(echo "Content to insert")
+# Content is read from stdin (e.g., from a heredoc)
+insert_at_beginning() {
+    set -u
+    local file="$1"
+    local tmpfile
+    tmpfile="$(mktemp)"
+    cat - "$file" > "$tmpfile" && mv "$tmpfile" "$file"
+    set +u
 }
 
 # Add parse_git_branch function and update PS1 in color_prompt section
@@ -22,9 +49,10 @@ comment_out_bash_aliases() {
 #   - Capture the PS1 prefix (PS1=.*) and the trailing \$ ' (represented as \\\$ \x27)
 #     - \\\$ - Matches a literal \$ in the file
 #     - \x27 - Hexadecimal escape for a single quote (') character
-# - Insert $(parse_git_branch) with blue color (tput setaf 4) before the trailing \$ '
+# - Insert $(parse_git_branch) with blue color before the trailing \$ '
 # shellcheck disable=SC2016
 update_ps1_with_git_branch() {
+    set -u
     local file="$1"
     if [ -f "$file" ]; then
         # Insert parse_git_branch function before the color_prompt conditional
@@ -33,10 +61,11 @@ update_ps1_with_git_branch() {
 parse_git_branch() { [ -t 1 ] || git branch --no-color 2> /dev/null | sed -e '"'"'/^[^*]/d'"'"' -e '"'"'s/* \\(.*\\)/ (\\1)/'"'"'; }\
 ' "$file"
         # Update PS1 lines within the color_prompt conditional to include git branch
-        sed -i '/if[[:space:]]*\[[[:space:]]*"\$color_prompt"[[:space:]]*=[[:space:]]*yes[[:space:]]*\];[[:space:]]*then/,/^else$/s/\(PS1=.*\)\(\\\$ \x27\)$/\1\$(tput setaf 4)\$(parse_git_branch)\$(tput sgr0)\2/' "$file"
+        sed -i '/if[[:space:]]*\[[[:space:]]*"\$color_prompt"[[:space:]]*=[[:space:]]*yes[[:space:]]*\];[[:space:]]*then/,/^else$/s/\(PS1=.*\)\(\\\$ \x27\)$/\1\\[\x27${C_BLUE}\x27\\]\$(parse_git_branch)\\[\x27${C_DEFAULT}\x27\\]\2/' "$file"
         # Update PS1 in the else block to include git branch
         sed -i '/^else$/,/^fi$/s/\(PS1=.*\)\(\\\$ \x27\)$/\1\$(parse_git_branch)\2/' "$file"
     fi
+    set +u
 }
 
 for f in /etc/skel/.bashrc /root/.bashrc; do
@@ -84,25 +113,32 @@ fi
 EOF
 
 # shellcheck disable=SC2181
+# Insert C_* color variables and PATH at the beginning of bashrc files (after initial comments)
+for bashrc_file in /etc/skel/.bashrc /root/.bashrc; do
+    cat << EOF | insert_at_beginning "$bashrc_file"
+$(extract_leading_comments "$bashrc_file")
+
+C_BOLD="\\033[1m" C_UNDERLINE="\\033[4m" C_REVERSE="\\033[7m" \\
+C_DEFAULT="\\033[0m" C_RESET="\\033[0m" C_NORM="\\033[0m" \\
+C_RED="\\033[31m" C_GREEN="\\033[32m" C_YELLOW="\\033[33m" \\
+C_BLUE="\\033[34m" C_MAGENTA="\\033[35m" C_CYAN="\\033[36m" \\
+C_RED_BOLD="\\033[1;31m" C_GREEN_BOLD="\\033[1;32m" \\
+C_YELLOW_BOLD="\\033[1;33m" C_BLUE_BOLD="\\033[1;34m" \\
+C_MAGENTA_BOLD="\\033[1;35m" C_CYAN_BOLD="\\033[1;36m" \\
+C_BRIGHT_RED="\\033[91m" C_BRIGHT_GREEN="\\033[92m" \\
+C_BRIGHT_YELLOW="\\033[93m" C_BRIGHT_BLUE="\\033[94m" \\
+C_BRIGHT_MAGENTA="\\033[95m" C_BRIGHT_CYAN="\\033[96m" \\
+C_BRIGHT_RED_BOLD="\\033[1;91m" C_BRIGHT_GREEN_BOLD="\\033[1;92m" \\
+C_BRIGHT_YELLOW_BOLD="\\033[1;93m" C_BRIGHT_BLUE_BOLD="\\033[1;94m" \\
+C_BRIGHT_MAGENTA_BOLD="\\033[1;95m" C_BRIGHT_CYAN_BOLD="\\033[1;96m" \\
+C_WHITE="\\033[97m" C_WHITE_BOLD="\\033[1;97m" \\
+C_BLACK="\\033[30m" C_BLACK_BOLD="\\033[1;30m"
+EOF
+done
+
 cat << EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
 
 PATH="\$($FIXPATH)"
-
-C_BOLD="\033[1m" C_UNDERLINE="\033[4m" C_REVERSE="\033[7m" \\
-C_DEFAULT="\033[0m" C_RESET="\033[0m" C_NORM="\033[0m" \\
-C_RED="\033[31m" C_GREEN="\033[32m" C_YELLOW="\033[33m" \\
-C_BLUE="\033[34m" C_MAGENTA="\033[35m" C_CYAN="\033[36m" \\
-C_RED_BOLD="\033[1;31m" C_GREEN_BOLD="\033[1;32m" \\
-C_YELLOW_BOLD="\033[1;33m" C_BLUE_BOLD="\033[1;34m" \\
-C_MAGENTA_BOLD="\033[1;35m" C_CYAN_BOLD="\033[1;36m" \\
-C_BRIGHT_RED="\033[91m" C_BRIGHT_GREEN="\033[92m" \\
-C_BRIGHT_YELLOW="\033[93m" C_BRIGHT_BLUE="\033[94m" \\
-C_BRIGHT_MAGENTA="\033[95m" C_BRIGHT_CYAN="\033[96m" \\
-C_BRIGHT_RED_BOLD="\033[1;91m" C_BRIGHT_GREEN_BOLD="\033[1;92m" \\
-C_BRIGHT_YELLOW_BOLD="\033[1;93m" C_BRIGHT_BLUE_BOLD="\033[1;94m" \\
-C_BRIGHT_MAGENTA_BOLD="\033[1;95m" C_BRIGHT_CYAN_BOLD="\033[1;96m" \\
-C_WHITE="\033[97m" C_WHITE_BOLD="\033[1;97m" \\
-C_BLACK="\033[30m" C_BLACK_BOLD="\033[1;30m"
 
 alias unixtime='date +%s'
 alias utctime='date -u +"%Y-%m-%dT%H:%M:%SZ"'
@@ -147,17 +183,17 @@ __exit_status() {
         then
             if [ "\$1" -eq 0 ]
             then
-                printf "%s%s%s " "\$(tput setaf 2)" "\$icon_debian" "\$(tput sgr0)"
+                echo -en "\\001\${C_GREEN}\\002\${icon_debian}\\001\${C_RESET}\\002 "
             else
-                printf "%s%s (%s)%s " "\$(tput setaf 1)" "\$icon_debian" "\$1" "\$(tput sgr0)"
+                echo -en "\\001\${C_RED}\\002\${icon_debian} (\${1})\\001\${C_RESET}\\002 "
             fi
         fi
     else
         if [ "\$1" -eq 0 ]
         then
-            printf "%s " "\$icon_success"
+            echo -en "\${icon_success} "
         else
-            printf "%s (%s) " "\$icon_failure" "\$1"
+            echo -en "\${icon_failure} (\${1}) "
         fi
     fi
 }
@@ -247,15 +283,7 @@ testd() {
 os() {
     local os arch
     os="\$(uname -s | lowercase)"
-    arch="\$(uname -m)"
-    if [ -n "\$arch" ]
-    then
-        case "\$arch" in
-            x86_64|amd64) os="\${os}-amd64" ;;
-            aarch64|arm64) os="\${os}-arm64" ;;
-            *) os="\${os}-\${arch}" ;;
-        esac
-    fi
+    arch="\$(dpkg --print-architecture)"
     if [ -r /etc/os-release ]
     then
         # os="\$(. /etc/os-release; echo "\${os}:\${ID-}-\${VERSION_CODENAME-}:\${VERSION_ID-}")"
