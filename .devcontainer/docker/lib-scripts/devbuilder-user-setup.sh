@@ -68,9 +68,25 @@ parse_git_branch() { [ -t 1 ] || git branch --no-color 2> /dev/null | sed -e '"'
     set +u
 }
 
+# shellcheck disable=SC2016
+party_ps1() {
+    set -u
+    local file="$1"
+    if [ -f "$file" ]; then
+        # sed -i '/if[[:space:]]*\[[[:space:]]*"\$color_prompt"[[:space:]]*=[[:space:]]*yes[[:space:]]*\];[[:space:]]*then/,/^else$/s/\(PS1=.*\)\\u@\(.*\\\$ \x27\)$/\1\\[\x27${C_BOLD}\x27\\]\\[\x27${C_GREEN}\x27\\]\\[\\033\[38;05;198m\\]\\u\\[\\033\[38;05;214m\\]@\\[\x27${C_GREEN}\x27\\]\2/' "$file"
+
+        # Insert "if [ "$PARTY_PS1" = "true" ]; then" before PS1 lines
+        sed -i '/if[[:space:]]*\[[[:space:]]*"\$color_prompt"[[:space:]]*=[[:space:]]*yes[[:space:]]*\];[[:space:]]*then/,/^else$/s/^\([[:space:]]*\)\(PS1=.*\\u@.*\\\$ \x27\)$/\1if [ "${PARTY_PS1:-false}" = "true" ]; then\n\1    \2\n\1else\n\1    \2\n\1fi/' "$file"
+        # Colorize ...
+        sed -i '/if[[:space:]]*\[[[:space:]]*"${PARTY_PS1:-false}"[[:space:]]*=[[:space:]]*"true"[[:space:]]*\];[[:space:]]*then/{n;s/\(PS1=.*\)\\u@\(.*\\\$ \x27\)$/\1\\[\x27${C_BOLD}\x27\\]\\[\x27${C_GREEN}\x27\\]\\[\x27${PS1_USER_COLOR}\x27\\]\\u\\[\x27${PS1_AT_COLOR}\x27\\]@\\[\x27${C_GREEN}\x27\\]\2/}' "$file"
+    fi
+    set +u
+}
+
 for f in /etc/skel/.bashrc /root/.bashrc; do
     comment_out_bash_aliases "$f"
     update_ps1_with_git_branch "$f"
+    party_ps1 "$f"
 done
 
 cat << EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
@@ -118,21 +134,27 @@ for bashrc_file in /etc/skel/.bashrc /root/.bashrc; do
     cat << EOF | insert_at_beginning "$bashrc_file"
 $(extract_leading_comments "$bashrc_file")
 
-C_BOLD="\\033[1m" C_UNDERLINE="\\033[4m" C_REVERSE="\\033[7m" \\
-C_DEFAULT="\\033[0m" C_RESET="\\033[0m" C_NORM="\\033[0m" \\
-C_RED="\\033[31m" C_GREEN="\\033[32m" C_YELLOW="\\033[33m" \\
-C_BLUE="\\033[34m" C_MAGENTA="\\033[35m" C_CYAN="\\033[36m" \\
-C_RED_BOLD="\\033[1;31m" C_GREEN_BOLD="\\033[1;32m" \\
-C_YELLOW_BOLD="\\033[1;33m" C_BLUE_BOLD="\\033[1;34m" \\
-C_MAGENTA_BOLD="\\033[1;35m" C_CYAN_BOLD="\\033[1;36m" \\
-C_BRIGHT_RED="\\033[91m" C_BRIGHT_GREEN="\\033[92m" \\
-C_BRIGHT_YELLOW="\\033[93m" C_BRIGHT_BLUE="\\033[94m" \\
-C_BRIGHT_MAGENTA="\\033[95m" C_BRIGHT_CYAN="\\033[96m" \\
-C_BRIGHT_RED_BOLD="\\033[1;91m" C_BRIGHT_GREEN_BOLD="\\033[1;92m" \\
-C_BRIGHT_YELLOW_BOLD="\\033[1;93m" C_BRIGHT_BLUE_BOLD="\\033[1;94m" \\
-C_BRIGHT_MAGENTA_BOLD="\\033[1;95m" C_BRIGHT_CYAN_BOLD="\\033[1;96m" \\
-C_WHITE="\\033[97m" C_WHITE_BOLD="\\033[1;97m" \\
-C_BLACK="\\033[30m" C_BLACK_BOLD="\\033[1;30m"
+C_ESQ="\\033[" C_DEFAULT="\${C_ESQ}0m" C_RESET="\${C_ESQ}0m" \\
+C_BOLD="\${C_ESQ}1m" C_UNDERLINE="\${C_ESQ}4m" C_REVERSE="\${C_ESQ}7m" \\
+C_RED="\${C_ESQ}31m" C_GREEN="\${C_ESQ}32m" C_YELLOW="\${C_ESQ}33m" \\
+C_BLUE="\${C_ESQ}34m" C_MAGENTA="\${C_ESQ}35m" C_CYAN="\${C_ESQ}36m" \\
+C_RED_BOLD="\${C_ESQ}1;31m" C_GREEN_BOLD="\${C_ESQ}1;32m" \\
+C_YELLOW_BOLD="\${C_ESQ}1;33m" C_BLUE_BOLD="\${C_ESQ}1;34m" \\
+C_MAGENTA_BOLD="\${C_ESQ}1;35m" C_CYAN_BOLD="\${C_ESQ}1;36m" \\
+C_BRIGHT_RED="\${C_ESQ}91m" C_BRIGHT_GREEN="\${C_ESQ}92m" \\
+C_BRIGHT_YELLOW="\${C_ESQ}93m" C_BRIGHT_BLUE="\${C_ESQ}94m" \\
+C_BRIGHT_MAGENTA="\${C_ESQ}95m" C_BRIGHT_CYAN="\${C_ESQ}96m" \\
+C_BRIGHT_RED_BOLD="\${C_ESQ}1;91m" C_BRIGHT_GREEN_BOLD="\${C_ESQ}1;92m" \\
+C_BRIGHT_YELLOW_BOLD="\${C_ESQ}1;93m" C_BRIGHT_BLUE_BOLD="\${C_ESQ}1;94m" \\
+C_BRIGHT_MAGENTA_BOLD="\${C_ESQ}1;95m" C_BRIGHT_CYAN_BOLD="\${C_ESQ}1;96m" \\
+C_WHITE="\${C_ESQ}97m" C_WHITE_BOLD="\${C_ESQ}1;97m" \\
+C_BLACK="\${C_ESQ}30m" C_BLACK_BOLD="\${C_ESQ}1;30m"
+
+PS1_USER_COLOR="\${C_ESQ}\${PS1_USER_COLOR:-38;5;198}m"
+PS1_AT_COLOR="\${C_ESQ}\${PS1_AT_COLOR:-38;5;214}m"
+
+PS1_ERROR_COLOR="\${C_ESQ}\${PS1_ERROR_COLOR:-38;5;161}m"
+PS1_SUCCESS_COLOR="\${C_ESQ}\${PS1_SUCCESS_COLOR:-38;5;082}m"
 EOF
 done
 
@@ -177,15 +199,22 @@ __exit_status() {
     local icon_success="✔"
     local icon_failure="✘"
     local icon_debian="꩜"
+    local error_color="\${C_RED}"
+    local success_color="\${C_GREEN}"
     if __color_enabled
     then
         if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null
         then
+            if [ "\$PARTY_PS1" = "true" ]
+            then
+                error_color="\${PS1_ERROR_COLOR}"
+                success_color="\${PS1_SUCCESS_COLOR}"
+            fi
             if [ "\$1" -eq 0 ]
             then
-                echo -en "\\001\${C_GREEN}\\002\${icon_debian}\\001\${C_RESET}\\002 "
+                echo -en "\\001\${success_color}\\002\${icon_debian}\\001\${C_RESET}\\002 "
             else
-                echo -en "\\001\${C_RED}\\002\${icon_debian} (\${1})\\001\${C_RESET}\\002 "
+                echo -en "\\001\${error_color}\\002\${icon_debian} (\${1})\\001\${C_RESET}\\002 "
             fi
         fi
     else
