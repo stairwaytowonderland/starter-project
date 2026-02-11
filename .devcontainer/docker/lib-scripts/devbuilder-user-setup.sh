@@ -150,11 +150,11 @@ C_BRIGHT_MAGENTA_BOLD="\${C_ESQ}1;95m" C_BRIGHT_CYAN_BOLD="\${C_ESQ}1;96m" \\
 C_WHITE="\${C_ESQ}97m" C_WHITE_BOLD="\${C_ESQ}1;97m" \\
 C_BLACK="\${C_ESQ}30m" C_BLACK_BOLD="\${C_ESQ}1;30m"
 
-PS1_USER_COLOR="\${C_ESQ}\${PS1_USER_COLOR:-38;5;198}m"
-PS1_AT_COLOR="\${C_ESQ}\${PS1_AT_COLOR:-38;5;214}m"
+PS1_USER_COLOR="\${C_ESQ}\${PS1_USER_COLOR:-38;5;198}" ; PS1_USER_COLOR="\${PS1_USER_COLOR%m}m"
+PS1_AT_COLOR="\${C_ESQ}\${PS1_AT_COLOR:-38;5;214}" ; PS1_AT_COLOR="\${PS1_AT_COLOR%m}m"
+PS1_ERROR_COLOR="\${C_ESQ}\${PS1_ERROR_COLOR:-38;5;161}" ; PS1_ERROR_COLOR="\${PS1_ERROR_COLOR%m}m"
+PS1_SUCCESS_COLOR="\${C_ESQ}\${PS1_SUCCESS_COLOR:-38;5;047}" ; PS1_SUCCESS_COLOR="\${PS1_SUCCESS_COLOR%m}m"
 
-PS1_ERROR_COLOR="\${C_ESQ}\${PS1_ERROR_COLOR:-38;5;161}m"
-PS1_SUCCESS_COLOR="\${C_ESQ}\${PS1_SUCCESS_COLOR:-38;5;082}m"
 EOF
 done
 
@@ -167,6 +167,10 @@ alias utctime='date -u +"%Y-%m-%dT%H:%M:%SZ"'
 alias now='date "+%A, %B %d, %Y %I:%M:%S %p %Z"'
 
 alias ll='ls -alF'
+
+alias grep='grep --color=auto'
+alias egrep='egrep --color=auto'
+alias fgrep='fgrep --color=auto'
 
 # Handle exit
 __quit() { printf "🤖 %s 🤖\n" "Klaatu barada nikto" >&2; }
