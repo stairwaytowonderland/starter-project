@@ -112,11 +112,13 @@
 	"remoteEnv": {
 		"PATH": "/home/linuxbrew/.linuxbrew/bin:${containerEnv:PATH}",
 		"IGNOREEOF": "2",
-		"PARTY_PS1": "true",
-		"PS1_USER_COLOR": "38;5;039",
-		"PS1_AT_COLOR": "38;5;202",
-		"PS1_ERROR_COLOR": "38;5;197",
-		"PS1_SUCCESS_COLOR": "38;5;046"
+		"PARTY_PS1": "true"
+		// "PS1_USER_COLOR": "38;5;039",
+		// "PS1_AT_COLOR": "38;5;202",
+		// "PS1_ERROR_COLOR": "38;5;197",
+		// "PS1_SUCCESS_COLOR": "$C_BRIGHT_GREEN",
+		// "PS1_GIT_BRANCH_COLOR": "38;5;024",
+		// "PS1_HOSTNAME_COLOR": "38;5;214"
 	},
 
 	// Configure tool-specific properties

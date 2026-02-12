@@ -61,7 +61,7 @@ update_ps1_with_git_branch() {
 parse_git_branch() { [ -t 1 ] || git branch --no-color 2> /dev/null | sed -e '"'"'/^[^*]/d'"'"' -e '"'"'s/* \\(.*\\)/ (\\1)/'"'"'; }\
 ' "$file"
         # Update PS1 lines within the color_prompt conditional to include git branch
-        sed -i '/if[[:space:]]*\[[[:space:]]*"\$color_prompt"[[:space:]]*=[[:space:]]*yes[[:space:]]*\];[[:space:]]*then/,/^else$/s/\(PS1=.*\)\(\\\$ \x27\)$/\1\\[\x27${C_BLUE}\x27\\]\$(parse_git_branch)\\[\x27${C_DEFAULT}\x27\\]\2/' "$file"
+        sed -i '/if[[:space:]]*\[[[:space:]]*"\$color_prompt"[[:space:]]*=[[:space:]]*yes[[:space:]]*\];[[:space:]]*then/,/^else$/s/\(PS1=.*\)\(\\\$ \x27\)$/\1\\[\x27${PS1_GIT_BRANCH_COLOR:-$C_BLUE}\x27\\]\$(parse_git_branch)\\[\x27${C_DEFAULT}\x27\\]\2/' "$file"
         # Update PS1 in the else block to include git branch
         sed -i '/^else$/,/^fi$/s/\(PS1=.*\)\(\\\$ \x27\)$/\1\$(parse_git_branch)\2/' "$file"
     fi
@@ -73,12 +73,12 @@ party_ps1() {
     set -u
     local file="$1"
     if [ -f "$file" ]; then
-        # sed -i '/if[[:space:]]*\[[[:space:]]*"\$color_prompt"[[:space:]]*=[[:space:]]*yes[[:space:]]*\];[[:space:]]*then/,/^else$/s/\(PS1=.*\)\\u@\(.*\\\$ \x27\)$/\1\\[\x27${C_BOLD}\x27\\]\\[\x27${C_GREEN}\x27\\]\\[\\033\[38;05;198m\\]\\u\\[\\033\[38;05;214m\\]@\\[\x27${C_GREEN}\x27\\]\2/' "$file"
+        sed -i '/if[[:space:]]*\[[[:space:]]*"\$color_prompt"[[:space:]]*=[[:space:]]*yes[[:space:]]*\];[[:space:]]*then/,/^else$/s/\(PS1=.*\)\\u@\(.*\\\$ \x27\)$/\1\\[\x27${C_BOLD}\x27\\]\\[\x27${PS1_USER_COLOR:-$C_GREEN}\x27\\]\\u\\[\x27${PS1_AT_COLOR:-$C_GREEN}\x27\\]@\\[\x27${PS1_HOSTNAME_COLOR:-$C_GREEN}\x27\\]\2/' "$file"
 
         # Insert "if [ "$PARTY_PS1" = "true" ]; then" before PS1 lines
-        sed -i '/if[[:space:]]*\[[[:space:]]*"\$color_prompt"[[:space:]]*=[[:space:]]*yes[[:space:]]*\];[[:space:]]*then/,/^else$/s/^\([[:space:]]*\)\(PS1=.*\\u@.*\\\$ \x27\)$/\1if [ "${PARTY_PS1:-false}" = "true" ]; then\n\1    \2\n\1else\n\1    \2\n\1fi/' "$file"
+        # sed -i '/if[[:space:]]*\[[[:space:]]*"\$color_prompt"[[:space:]]*=[[:space:]]*yes[[:space:]]*\];[[:space:]]*then/,/^else$/s/^\([[:space:]]*\)\(PS1=.*\\u@.*\\\$ \x27\)$/\1if [ "${PARTY_PS1:-false}" = "true" ]; then\n\1    \2\n\1else\n\1    \2\n\1fi/' "$file"
         # Colorize ...
-        sed -i '/if[[:space:]]*\[[[:space:]]*"${PARTY_PS1:-false}"[[:space:]]*=[[:space:]]*"true"[[:space:]]*\];[[:space:]]*then/{n;s/\(PS1=.*\)\\u@\(.*\\\$ \x27\)$/\1\\[\x27${C_BOLD}\x27\\]\\[\x27${C_GREEN}\x27\\]\\[\x27${PS1_USER_COLOR}\x27\\]\\u\\[\x27${PS1_AT_COLOR}\x27\\]@\\[\x27${C_GREEN}\x27\\]\2/}' "$file"
+        # sed -i '/if[[:space:]]*\[[[:space:]]*"${PARTY_PS1:-false}"[[:space:]]*=[[:space:]]*"true"[[:space:]]*\];[[:space:]]*then/{n;s/\(PS1=.*\)\\u@\(.*\\\$ \x27\)$/\1\\[\x27${C_BOLD}\x27\\]\\[\x27${PS1_USER_COLOR:-$C_GREEN}\x27\\]\\u\\[\x27${PS1_AT_COLOR:-$C_GREEN}\x27\\]@\\[\x27${PS1_HOSTNAME_COLOR:-$C_GREEN}\x27\\]\2/}' "$file"
     fi
     set +u
 }
@@ -150,10 +150,43 @@ C_BRIGHT_MAGENTA_BOLD="\${C_ESQ}1;95m" C_BRIGHT_CYAN_BOLD="\${C_ESQ}1;96m" \\
 C_WHITE="\${C_ESQ}97m" C_WHITE_BOLD="\${C_ESQ}1;97m" \\
 C_BLACK="\${C_ESQ}30m" C_BLACK_BOLD="\${C_ESQ}1;30m"
 
-PS1_USER_COLOR="\${C_ESQ}\${PS1_USER_COLOR:-38;5;198}" ; PS1_USER_COLOR="\${PS1_USER_COLOR%m}m"
-PS1_AT_COLOR="\${C_ESQ}\${PS1_AT_COLOR:-38;5;214}" ; PS1_AT_COLOR="\${PS1_AT_COLOR%m}m"
-PS1_ERROR_COLOR="\${C_ESQ}\${PS1_ERROR_COLOR:-38;5;161}" ; PS1_ERROR_COLOR="\${PS1_ERROR_COLOR%m}m"
-PS1_SUCCESS_COLOR="\${C_ESQ}\${PS1_SUCCESS_COLOR:-38;5;047}" ; PS1_SUCCESS_COLOR="\${PS1_SUCCESS_COLOR%m}m"
+ps1_colors() {
+    for var_def in \\
+        "PS1_USER_COLOR:38;5;198" \\
+        "PS1_AT_COLOR:38;5;214" \\
+        "PS1_ERROR_COLOR:38;5;161" \\
+        "PS1_SUCCESS_COLOR:38;5;047" \\
+        "PS1_GIT_BRANCH_COLOR:38;5;025" \\
+        "PS1_HOSTNAME_COLOR:38;5;118"
+    do
+        local var_name default_val val varname_to_expand
+        var_name="\${var_def%%:*}"
+        val="\${!var_name}"
+
+        # If PARTY_PS1 is true and variable is empty, use default
+        if [ "\$PARTY_PS1" = "true" ] && [ -z "\$val" ]; then
+            default_val="\${var_def#*:}"
+            val="\$default_val"
+        fi
+
+        # Skip if no value
+        [ -n "\$val" ] || continue
+
+        # Expand variable references like \$C_GREEN
+        if [[ "\$val" == \\\$* ]]; then
+            varname_to_expand="\${val#\\\$}"
+            val="\${!varname_to_expand}"
+        fi
+
+        # Add C_ESQ if not present
+        [[ "\$val" != "\$C_ESQ"* ]] && val="\${C_ESQ}\${val}"
+
+        # Ensure ends with 'm'
+        val="\${val%m}m"
+        printf -v "\$var_name" "%s" "\$val"
+    done
+}
+ps1_colors
 
 EOF
 done
@@ -168,9 +201,11 @@ alias now='date "+%A, %B %d, %Y %I:%M:%S %p %Z"'
 
 alias ll='ls -alF'
 
-alias grep='grep --color=auto'
-alias egrep='egrep --color=auto'
-alias fgrep='fgrep --color=auto'
+if [ -x /usr/bin/dircolors ]; then
+    alias grep='grep --color=auto'
+    alias egrep='egrep --color=auto'
+    alias fgrep='fgrep --color=auto'
+fi
 
 # Handle exit
 __quit() { printf "🤖 %s 🤖\n" "Klaatu barada nikto" >&2; }
@@ -178,7 +213,8 @@ __quit() { printf "🤖 %s 🤖\n" "Klaatu barada nikto" >&2; }
 # Handle cancelled operations (e.g., Ctrl+C)
 __control_c() {
     local err="\$?"
-    printf "\n⛔ \${C_RED}\${C_BOLD}✗\${C_DEFAULT} \${C_RED}(%s)\${C_DEFAULT} \${C_RED}\${C_BOLD}%s\${C_DEFAULT} ⛔" "\$err" "Operation cancelled by user" >&2
+    local color="\${PS1_ERROR_COLOR:-\$C_RED}"
+    echo -en "\n⛔ \${C_BOLD}\${color}✗\${C_DEFAULT} \${color}(\$err)\${C_DEFAULT} \${C_BOLD}\${color}Operation cancelled by user\${C_DEFAULT} ⛔" >&2
     return \$err;
 }
 
@@ -187,33 +223,23 @@ __color_enabled() {
     local color_prompt=
     case "\$TERM" in
         xterm-color|*-256color) color_prompt=yes ;;
-        *) return 1 ;;
     esac
-    if [ "\$color_prompt" = yes ]
-    then
-        if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null
-        then
-            return 0
-        fi
-    fi
-    return 1
+    [ "\$color_prompt" = yes ] \\
+        && [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null \\
+            && return \\
+            || return \$?
 }
 
 __exit_status() {
     local icon_success="✔"
     local icon_failure="✘"
     local icon_debian="꩜"
-    local error_color="\${C_RED}"
-    local success_color="\${C_GREEN}"
+    local error_color="\${PS1_ERROR_COLOR:-\$C_RED}"
+    local success_color="\${PS1_SUCCESS_COLOR:-\$C_GREEN}"
     if __color_enabled
     then
         if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null
         then
-            if [ "\$PARTY_PS1" = "true" ]
-            then
-                error_color="\${PS1_ERROR_COLOR}"
-                success_color="\${PS1_SUCCESS_COLOR}"
-            fi
             if [ "\$1" -eq 0 ]
             then
                 echo -en "\\001\${success_color}\\002\${icon_debian}\\001\${C_RESET}\\002 "
