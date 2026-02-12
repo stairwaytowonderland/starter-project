@@ -195,6 +195,24 @@ cat << EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
 
 PATH="\$($FIXPATH)"
 
+showcolors() {
+    for var in PS1_USER_COLOR PS1_AT_COLOR PS1_ERROR_COLOR PS1_SUCCESS_COLOR PS1_GIT_BRANCH_COLOR PS1_HOSTNAME_COLOR
+    do
+        val="\${!var}"
+        if [[ "\$val" == \\\$* ]]; then
+            varname_to_expand="\${val#\\\$}"
+            val="\${!varname_to_expand}"
+        fi
+        printf "\${val}%s=%s\${C_DEFAULT}\n" "\$var" "\$val"
+    done
+}
+
+colors() {
+    for code in {0..255}
+        do echo -e "\\e[38;5;\${code}m"'\\\\e[38;5;'"\$code"m"\\e[0m"
+    done
+}
+
 alias unixtime='date +%s'
 alias utctime='date -u +"%Y-%m-%dT%H:%M:%SZ"'
 alias now='date "+%A, %B %d, %Y %I:%M:%S %p %Z"'
