@@ -3,6 +3,8 @@
 VERSION="${VERSION:-latest}"
 
 export DEBIAN_FRONTEND=noninteractive
+export GITHUB_API_HEADER_ACCEPT="Accept: application/vnd.github.v3+json"
+export API_TOKEN="${API_TOKEN-}"
 
 __get_platform() {
     PLATFORM="$(uname -s | tr '[:upper:]' '[:lower:]') $(dpkg --print-architecture)"
@@ -47,6 +49,10 @@ __get_arch() {
     echo "$_download_arch"
 }
 
+get_major_version() { echo "$1" | cut -d. -f1; }
+get_minor_version() { echo "$1" | cut -d. -f2; }
+get_patch_version() { echo "$1" | cut -d. -f3; }
+
 install_packages() {
     # shellcheck disable=SC2086
     LEVEL='ƒ' $LOGGER "Installing the following packages: "$*
@@ -60,15 +66,25 @@ update_and_install() {
 }
 
 remove_packages() {
+    PACKAGE_CLEANUP="${PACKAGE_CLEANUP:-true}"
+    REMOVE_ONLY="${REMOVE_ONLY:-false}"
+    if [ "$PACKAGE_CLEANUP" != "true" ] && [ "$REMOVE_ONLY" != "true" ]; then
+        LEVEL='warn' $LOGGER "Cleanup is disabled. Skipping package removal: ""$*"
+        return
+    fi
     # shellcheck disable=SC2086
     LEVEL='ƒ' $LOGGER "Removing the following packages: "$*
     # shellcheck disable=SC2086,SC2048
     apt-get -y remove $*
+    if [ "$REMOVE_ONLY" != "true" ]; then
+        LEVEL='ƒ' $LOGGER "Autoremoving packages..."
+        apt-get -y autoremove
+    fi
 }
 
 # Usage example for defining packages to install:
 #
-# PACKAGES_TO_INSTALL="${PACKAGES_TO_INSTALL% }$(
+# PACKAGES_TO_INSTALL="${PACKAGES_TO_INSTALL% } $(
 #     cat << EOF
 # list
 # of
@@ -79,9 +95,6 @@ remove_packages() {
 # [ -z "$PACKAGES_TO_INSTALL" ] \
 #     && update_and_install "$PACKAGES_TO_INSTALL" \
 #     || echo "Warning: No packages to install."
-
-GITHUB_API_HEADER_ACCEPT="Accept: application/vnd.github.v3+json"
-GITHUB_TOKEN="${GITHUB_TOKEN-}"
 
 __check_semver() {
     _version="${1-}"
@@ -102,10 +115,10 @@ __check_semver() {
 # Use `git ls-remote --tags` for public repositories to avoid hitting API rate limits, and fallback to API if needed or if authentication is required.
 # (see `find_version_from_git_tags`, below)
 __rest_call() {
-    if [ -n "$GITHUB_TOKEN" ]; then
-        curl -sSL --include "$1" -H "${GITHUB_API_HEADER_ACCEPT}" -H "Authorization: token ${GITHUB_TOKEN}"
+    if [ -n "$API_TOKEN" ]; then
+        curl -fsSL --include "$1" -H "${GITHUB_API_HEADER_ACCEPT}" -H "Authorization: token ${API_TOKEN}"
     else
-        curl -sSL --include "$1" -H "${GITHUB_API_HEADER_ACCEPT}"
+        curl -fsSL --include "$1" -H "${GITHUB_API_HEADER_ACCEPT}"
     fi
 }
 
@@ -114,11 +127,11 @@ __rest_github_tags_paged() {
 
     page=0
     max_pages="${2:-10}"  # safety to prevent long running loops
-    type __rest_call || return 1
+    type __rest_call > /dev/null 2>&1 || return 1
     while [ ! -z "$URL" ] && [ $page -lt "$max_pages" ]; do
         response=$(__rest_call "$URL")
         body=$(echo "$response" | sed -E '1,/^\r?$/d')
-        tags=$(echo "$body" | grep -oP '"name":\s*"v\K[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' | sort -ruV)
+        tags=$(echo "$body" | grep -oP '"name":\s*"v?\K[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' | sort -ruV)
 
         echo "$tags"
 
@@ -151,7 +164,7 @@ __find_version_from_git_tags() {
             last_part="${escaped_separator}[0-9]+"
         fi
         regex="$(echo "$prefix" | sed 's|\/|\\/|g')\\K[0-9]+${escaped_separator}[0-9]+${last_part}$"
-        version_list="$(git ls-remote --tags "${url}" | grep -oP "${regex}" | tr -d "$prefix" | tr "${separator}" "." | sort -rV)"
+        version_list="$(git ls-remote --tags "${url}" | grep -oP "${regex}" | tr -d "$prefix" | tr "${separator}" "." | sort -ruV)"
         if [ "${requested_version}" = "latest" ] || [ "${requested_version}" = "current" ] || [ "${requested_version}" = "lts" ]; then
             VERSION="$(echo "${version_list}" | head -n 1)"
         else
@@ -160,7 +173,7 @@ __find_version_from_git_tags() {
     fi
 }
 
-__get_version() {
+__get_version_with_rest_api() {
     _github_repo="${1-}"
     _version="${2:-latest}"
 
@@ -169,9 +182,10 @@ __get_version() {
         return 1
     fi
 
-    if [ ! "$(__check_semver "$_version")" ]; then
+    if ! __check_semver > /dev/null 2>&1 "$_version"; then
         # https://github.com/devcontainers/features/blob/main/src/git/install.sh#L291C76-L291C117
-        version_list="$(curl -sSL -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/${_github_repo}/tags" | grep -oP '"name":\s*"v\K[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' | sort -rV)"
+        # version_list="$(curl -sSL -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/${_github_repo}/tags" | grep -oP '"name":\s*"v\K[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' | sort -rV)"
+        version_list="$(__rest_github_tags_paged "$_github_repo")"
         if [ "${_version}" = "latest" ] || [ "${_version}" = "lts" ] || [ "${_version}" = "current" ]; then
             VERSION="$(echo "${version_list}" | head -n 1)"
         else
@@ -186,7 +200,7 @@ __get_version() {
     fi
 
     # shellcheck disable=SC2015
-    __check_semver "$VERSION" && echo "$VERSION" || {
+    __check_semver > /dev/null 2>&1 "$VERSION" && echo "$VERSION" || {
         LEVEL='error' $LOGGER "Version must be a semantic version (e.g., 1.2.3): ${VERSION}"
         return 3
     }
@@ -207,7 +221,7 @@ __set_url_parts() {
     fi
 
     # ? swap for __find_version_from_git_tags?
-    _download_version="$(__get_version "$_github_repo" "$_version")" || return $?
+    _download_version="$(__get_version_with_rest_api "$_github_repo" "$_version")" || return $?
     DOWNLOAD_VERSION="${_version_prefix}${_download_version#"$_version_prefix"}"
     DOWNLOAD_PLATFORM="$(uname -sm | tr '[:upper:]' '[:lower:]')"
     DOWNLOAD_OS="$(__get_os "$DOWNLOAD_PLATFORM")" || return $?

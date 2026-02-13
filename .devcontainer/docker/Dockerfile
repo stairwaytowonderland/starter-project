@@ -117,7 +117,7 @@ RUN if [ "$IMAGE_NAME" = "ubuntu" ]; then \
 # --------------------------------------------------------------
 FROM builder AS brewbuilder
 
-ARG USERNAME=vscode
+ARG USERNAME=devcontainer
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
@@ -146,7 +146,7 @@ CMD ["/bin/bash"]
 
 FROM builder AS gobuilder
 
-ARG USERNAME=vscode
+ARG USERNAME=devcontainer
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
@@ -165,7 +165,7 @@ CMD ["/bin/bash"]
 
 FROM builder AS nodebuilder
 
-ARG USERNAME=vscode
+ARG USERNAME=devcontainer
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
@@ -184,6 +184,30 @@ RUN /tmp/lib-scripts/node-install.sh \
   # Cleanup
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/*
+
+CMD ["/bin/bash"]
+
+
+FROM builder AS pybuilder
+
+ARG PYTHON_VERSION=latest
+ARG PYTHON_INSTALL_PATH=/usr/local/python
+ARG PACKAGE_CLEANUP=false
+
+# Copy library scripts
+COPY --chmod=755 .devcontainer/docker/lib-scripts/python-install.sh /tmp/lib-scripts/
+
+USER root
+
+RUN if [ "$PYTHON_VERSION" != "system" ] \
+    && [ "$PYTHON_VERSION" != "none" ] \
+    && [ "$PYTHON_VERSION" != "devcontainer" ]; then \
+      /tmp/lib-scripts/python-install.sh; \
+  fi \
+  # Cleanup build dependencies but keep the Python installation
+  && apt-get clean -y \
+  && rm -rf /var/lib/apt/lists/* \
+  && rm -rf /tmp/*
 
 CMD ["/bin/bash"]
 
@@ -343,25 +367,38 @@ CMD ["healthcheck.sh"]
 
 FROM base AS devtools
 
-# Copy library scripts
-COPY --chmod=755 .devcontainer/docker/lib-scripts/devtools-*.sh \
-    .devcontainer/docker/lib-scripts/python-install.sh \
-    /tmp/lib-scripts/
+ARG PRE_COMMIT_ENABLED=false
 
-ARG NODEPATH=/home/$USERNAME/.local/lib/node/nodejs
+# Copy library scripts
+COPY --chmod=755 .devcontainer/docker/lib-scripts/devtools-*.sh /tmp/lib-scripts/
+
+ARG NODEPATH=/home/$USERNAME/.local/lib/node/nodejs \
+    PYTHON_INSTALL_PATH=/usr/local/python
 ENV NODEJS_HOME=/home/$USERNAME/.local/lib/nodejs
 ENV PATH="$NODEJS_HOME/bin:$PATH"
 COPY --from=nodebuilder --chown=$USERNAME:$USERNAME /usr/local/lib/node/nodejs $NODEPATH
 COPY --from=nodebuilder --chmod=755 /tmp/node-* /tmp/
 
+# Copy Python installation from pybuilder
+COPY --from=pybuilder $PYTHON_INSTALL_PATH $PYTHON_INSTALL_PATH
+
 USER root
 
 RUN /tmp/lib-scripts/devtools-utils.sh \
-  && /tmp/lib-scripts/python-install.sh \
-  # # Insert NODEPATH variable on 2nd line
+  # Insert NODEPATH variable on 2nd line
   && if [ -x /tmp/node-install ]; then \
     sed -i "2s|^|\nNODEPATH=$NODEPATH\n\n|" /tmp/node-install \
-    && /tmp/node-install; \
+      && /tmp/node-install; \
+  fi \
+  && sed -i "2s|^|\nPYTHON_INSTALL_PATH=$PYTHON_INSTALL_PATH\n\n|" "$PYTHON_INSTALL_PATH"/python-* \
+  && for f in "$PYTHON_INSTALL_PATH"/python-*-config; do \
+    if [ -x "$f" ]; then \
+      "$f"; \
+    fi; \
+  done \
+  # Remove system pre-commit to avoid conflicts with pipx installation
+  && if [ "$PRE_COMMIT_ENABLED" = "true" ] && type pre-commit >/dev/null 2>&1; then \
+    apt-get -y remove pre-commit || true; \
   fi \
   # Cleanup
   && apt-get -y autoremove \
@@ -372,34 +409,41 @@ RUN /tmp/lib-scripts/devtools-utils.sh \
 # Switch to non-root user
 USER $USERNAME
 
+# TODO: Make sure this is still accurate
 # Install Python, pipx, Poetry, uv, and other dev tools.
 # Do nothing if PYTHON_VERSION is 'devcontainer' or matches the USERNAME.
 # USERNAME cannot be 'system' or 'latest'.
+
 ARG NO_BREW_UPDATE=$DEV
-RUN if type "$BREW" > /dev/null 2>&1; then \
+RUN if [ -f "$PYTHON_INSTALL_PATH"/python-*-tools ]; then \
+    for f in "$PYTHON_INSTALL_PATH"/python-*-tools; do \
+      if [ -x "$f" ]; then \
+        "$f"; \
+      fi; \
+    done; \
+  elif type "$BREW" > /dev/null 2>&1 ; then \
     test "$NO_BREW_UPDATE" = "true" || "$BREW" update \
-    && if [ "$PYTHON_VERSION" = "latest" ] ; then \
+    && if [ "$PYTHON_VERSION" = "latest" ]; then \
       "$BREW" install python3; \
     elif [ "$PYTHON_VERSION" != "devcontainer" ] && [ "$PYTHON_VERSION" != "system" ] \
       && [ "$PYTHON_VERSION" != "$USERNAME" ] \
-      && [ "$(python3 --version | awk -F. '{print $1"."$2}')" != "Python ${PYTHON_VERSION}" ] ; then \
+      && python3 --version | grep -q "Python ${PYTHON_VERSION%%.*}" ; then \
       "$BREW" install "python@${PYTHON_VERSION}"; \
     fi \
     && if [ "$PYTHON_VERSION" != "system" ] ; then \
       "$BREW" install pipx; \
     fi; \
-  else \
-    if [ "$PYTHON_VERSION" = "latest" ] && "$PIPX" 2> /dev/null \
-      && [ "$IMAGE_NAME" = "ubuntu" ]; then \
-        $("$PIPX") install pip; \
-    fi; \
   fi \
   && if "$PIPX" 2>/dev/null; then \
-    type pre-commit >/dev/null 2>&1 \
-      || [ "$PRE_COMMIT_ENABLED" != "true" ] \
-      || $("$PIPX") install pre-commit \
-    && $("$PIPX") install poetry \
-    && $("$PIPX") install uv; \
+    for tool in pre-commit poetry uv; do \
+      if "$PIPX" >/dev/null 2>&1; then \
+        if [ "$tool" = "pre-commit" ] && [ "$PRE_COMMIT_ENABLED" = "true" ]; then \
+          $("$PIPX") install "$tool"; \
+        elif [ "$tool" != "pre-commit" ]; then \
+          type "$tool" >/dev/null 2>&1 || $("$PIPX") install "$tool"; \
+        fi; \
+      fi; \
+    done; \
   fi
 
 COPY --chmod=755 <<EOF /usr/local/bin/docker-entrypoint.sh
@@ -460,6 +504,9 @@ FROM base AS codeserver-minimal
 # Copy library scripts
 COPY --chmod=755 .devcontainer/docker/lib-scripts/codeserver-utils.sh /tmp/lib-scripts/
 
+# Copy start-code-server script
+COPY --chmod=755 .devcontainer/docker/scripts/start-code-server.sh /usr/local/bin/start-code-server
+
 USER root
 
 RUN /tmp/lib-scripts/codeserver-utils.sh \
@@ -484,9 +531,6 @@ ENV BIND_ADDR=$BIND_ADDR \
     CODE_SERVER_EXTENSIONS=$DEFAULT_WORKSPACE/.code-server/extensions/extensions.json \
     DOWNLOAD_STANDALONE=true \
     DEBUG=false
-
-# Copy start-code-server script
-COPY --chmod=755 .devcontainer/docker/scripts/start-code-server.sh /usr/local/bin/start-code-server
 
 # If standalone download is false, use root to install the .deb package
 # If standalone download is true use $USERNAME to install the tar.gz package
@@ -528,6 +572,9 @@ FROM devtools AS codeserver
 # Copy library scripts
 COPY --chmod=755 .devcontainer/docker/lib-scripts/codeserver-utils.sh /tmp/lib-scripts/
 
+# Copy start-code-server script
+COPY --chmod=755 .devcontainer/docker/scripts/start-code-server.sh /usr/local/bin/start-code-server
+
 USER root
 
 RUN /tmp/lib-scripts/codeserver-utils.sh \
@@ -552,9 +599,6 @@ ENV BIND_ADDR=$BIND_ADDR \
     CODE_SERVER_EXTENSIONS=$DEFAULT_WORKSPACE/.code-server/extensions/extensions.json \
     DOWNLOAD_STANDALONE=true \
     DEBUG=false
-
-# Copy start-code-server script
-COPY --chmod=755 .devcontainer/docker/scripts/start-code-server.sh /usr/local/bin/start-code-server
 
 # If standalone download is false, use root to install the .deb package
 # If standalone download is true use $USERNAME to install the tar.gz package

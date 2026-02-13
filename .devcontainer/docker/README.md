@@ -87,25 +87,27 @@ graph TD
     builder --> brewbuilder(["(4) brewbuilder"])
     builder --> gobuilder(["(5) gobuilder"])
     builder --> nodebuilder(["(6) nodebuilder"])
-    builder --> devbuilder["(7) devbuilder"]
-    builder --> production("(15) production")
+    builder --> pybuilder(["(7) pybuilder"])
+    builder --> devbuilder["(8) devbuilder"]
+    builder --> production("(16) production")
 
-    devbuilder --> devuser["(8) devuser"]
-    devbuilder --> brewuser["(9) brewuser"]
+    devbuilder --> devuser["(9) devuser"]
+    devbuilder --> brewuser["(10) brewuser"]
 
     brewbuilder -.->|copies brew| brewuser
     gobuilder -.->|copies shfmt| base
     nodebuilder -.->|copies node| devtools
+    pybuilder -.->|copies python| devtools
 
     devuser --> dev_parent{"$DEV_PARENT_IMAGE<br/>(build ARG)"}
     brewuser --> dev_parent
-    dev_parent --> base("(10) base")
+    dev_parent --> base("(11) base")
 
-    base --> devtools("(11) devtools")
-    base --> cloudtools("(12) cloudtools")
-    base --> codeserver-minimal("(13) codeserver-minimal")
+    base --> devtools("(12) devtools")
+    base --> cloudtools("(13) cloudtools")
+    base --> codeserver-minimal("(14) codeserver-minimal")
 
-    devtools --> codeserver("(14) codeserver")
+    devtools --> codeserver("(15) codeserver")
 
     style utils fill:#e1f5ff
     style filez fill:#e1f5ff
@@ -126,7 +128,7 @@ graph TD
     class base,devtools,cloudtools primary
     class devtools,cloudtools secondary
     class codeserver,codeserver-minimal tertiary
-    class utils,filez,gobuilder,nodebuilder,brewbuilder utility
+    class utils,filez,gobuilder,nodebuilder,brewbuilder,pybuilder utility
     class builder,devbuilder,devuser,brewuser builder
     class dev_parent small
 ```
@@ -322,7 +324,40 @@ graph LR
 - `NODEJS_HOME` - Node.js installation directory (`/usr/local/lib/nodejs`)
 - `PATH` - Updated to include `$NODEJS_HOME/bin`
 
-### 7. **`devbuilder`** (`FROM builder`)
+### 7. **`pybuilder`** (`FROM builder`)
+
+Builds Python from source in an isolated environment.
+
+```mermaid
+graph LR
+    base_image["$BASE_IMAGE"] --> builder[builder] --> pybuilder[pybuilder]
+    style base_image fill:#1d63ed,stroke:#bcbcbc,color:#ccc
+    style pybuilder fill:#90caf9,stroke:#1976d2,color:#333
+```
+
+**Purpose**: Compile Python from source without polluting downstream images with build dependencies.
+
+**Uses**: [`python-install.sh`](#python-installsh)
+
+**Build Arguments**:
+
+- `PYTHON_VERSION` (default: `latest`) - Python version to build from source
+- `PYTHON_INSTALL_PATH` (default: `/usr/local/python`) - Installation directory for compiled Python
+
+**Key Features**:
+
+- Compiles Python from source (downloads from python.org)
+- Resulting Python artifacts can be copied to other stages without the build overhead
+- Only runs if `PYTHON_VERSION` is not `system`, `none`, or `devcontainer`
+
+**Environment Variables**:
+
+- `PYTHON_VERSION` - Python version (exported from build ARG)
+
+**Usage Pattern**: Other stages use `COPY --from=pybuilder $PYTHON_INSTALL_PATH $PYTHON_INSTALL_PATH` to get the compiled
+Python without inheriting build dependencies.
+
+### 8. **`devbuilder`** (`FROM builder`)
 
 Extended builder with development tools and configuration.
 
@@ -354,7 +389,7 @@ graph LR
 - `PYTHON_VERSION` - Python version (exported from build ARG)
 - `DEV` - Development mode flag (exported from build ARG)
 
-### 8. **`devuser`** (`FROM devbuilder`)
+### 9. **`devuser`** (`FROM devbuilder`)
 
 Creates the non-root development user.
 
@@ -376,7 +411,7 @@ graph LR
 - Optionally sets default root password (development only)
 - Adds useful bash aliases system-wide
 
-### 9. **`brewuser`** (`FROM devbuilder`)
+### 10. **`brewuser`** (`FROM devbuilder`)
 
 Variant of `devuser` with Homebrew pre-installed.
 
@@ -396,7 +431,7 @@ graph LR
 - Copies Homebrew installation from brewbuilder stage
 - User has immediate access to brew commands
 
-### 10. **`base`** (`FROM $DEV_PARENT_IMAGE`)
+### 11. **`base`** (`FROM $DEV_PARENT_IMAGE`)
 
 The primary base target for development containers.
 
@@ -430,7 +465,7 @@ graph LR
 - `DEFAULT_WORKSPACE` - Default workspace path (from build ARG)
 - `RESET_ROOT_PASS` - Root password reset flag (default: `false`)
 
-### 11. **`devtools`** (`FROM base`)
+### 12. **`devtools`** (`FROM base`)
 
 Development container with Python, Node.js, and development tools.
 
@@ -447,10 +482,13 @@ graph LR
 **Build Arguments**:
 
 - `NO_BREW_UPDATE` (default: `$DEV`) - Skip brew update if true
+- `PYTHON_VERSION` (default: `latest`) - Python version to install
+- `PYTHON_INSTALL_PATH` (default: `/usr/local/python`) - Path to Python installation
 
 **Key Features**:
 
-- Installs Python via Homebrew (if `PYTHON_VERSION` specified)
+- Copies pre-compiled Python from pybuilder stage (avoids build dependencies in layer)
+- Installs Python via Homebrew (if `DEV_PARENT_IMAGE=brewuser` and `PYTHON_VERSION` specified)
 - Installs pipx, Poetry, and uv (Python package managers)
 - Installs Node.js from nodebuilder stage
 - Optionally installs pre-commit via pipx
@@ -463,7 +501,7 @@ graph LR
 
 **Entrypoint**: `docker-entrypoint.sh` - Handles root password reset and displays `fortune | cowsay`
 
-### 12. **`cloudtools`** (`FROM base`)
+### 13. **`cloudtools`** (`FROM base`)
 
 Development container with cloud CLI tools.
 
@@ -484,7 +522,7 @@ graph LR
 - Enables AWS CLI bash completion
 - Installs cfn-lint via pipx
 
-### 13. **`codeserver-minimal`** (`FROM base`)
+### 14. **`codeserver-minimal`** (`FROM base`)
 
 Minimal code-server container without development tools.
 
@@ -524,7 +562,7 @@ graph LR
 
 **Entrypoint**: `tini` for proper signal handling
 
-### 14. **`codeserver`** (`FROM devtools`)
+### 15. **`codeserver`** (`FROM devtools`)
 
 Full-featured code-server with development tools.
 
@@ -545,7 +583,7 @@ graph LR
 - Removes sudo access for security
 - Same configuration as codeserver-minimal
 
-### 15. **`production`** (`FROM builder`)
+### 16. **`production`** (`FROM builder`)
 
 Minimal production-ready container.
 
@@ -594,6 +632,8 @@ The Dockerfile accepts several build arguments for customization:
 | `TIMEZONE`             | `UTC`                        | builder        | Container timezone                                          |
 | `GO_VERSION`           | `latest`                     | gobuilder      | Go version to install                                       |
 | `NODE_VERSION`         | `lts`                        | nodebuilder    | Node.js version (lts, latest, or specific)                  |
+| `PYTHON_VERSION`       | `latest`                     | pybuilder      | Python version to build from source                         |
+| `PYTHON_INSTALL_PATH`  | `/usr/local/python`          | pybuilder      | Installation directory for compiled Python                  |
 | `DEV`                  | `false`                      | devbuilder     | Development mode flag                                       |
 | `GIT_VERSION`          | `system`                     | devbuilder     | Git version (system, latest, or specific)                   |
 | `PYTHON_VERSION`       | `devcontainer`               | devbuilder     | Python version (devcontainer, system, latest, or specific)  |
@@ -601,6 +641,7 @@ The Dockerfile accepts several build arguments for customization:
 | `DEFAULT_ROOT_PASS`    | `false`                      | devbuilder     | Set default root password (dev only)                        |
 | `FIXPATH`              | `/usr/local/bin/fixpath.sh`  | devbuilder     | Installation path for PATH fixing utility (build-time only) |
 | `PIPX`                 | `/usr/local/bin/pipxpath.sh` | devbuilder     | Installation path for pipx wrapper script (build-time only) |
+| `PYTHON_INSTALL_PATH`  | `/usr/local/python`          | devtools       | Path to Python installation directory                       |
 | `BIND_ADDR`            | `0.0.0.0:13337`              | codeserver*    | code-server bind address                                    |
 | `DOWNLOAD_STANDALONE`  | `true`                       | codeserver*    | Install code-server as standalone tar.gz                    |
 | `NO_BREW_UPDATE`       | `$DEV`                       | devtools       | Skip Homebrew update during build                           |
@@ -618,6 +659,7 @@ The Dockerfile accepts several build arguments for customization:
 | `DEFAULT_PASS_CHARSET`   | `[:graph:]`                                                  | builder     | Default password character set         |
 | `PATH`                   | `/usr/local/lib/nodejs/bin:$PATH`                            | nodebuilder | Node.js binaries in PATH               |
 | `NODEJS_HOME`            | `/usr/local/lib/nodejs`                                      | nodebuilder | Node.js installation directory         |
+| `PYTHON_VERSION`         | Build arg value                                              | pybuilder   | Python version being built             |
 | `PATH`                   | `/home/$USERNAME/.local/bin:$PATH`                           | devbuilder  | User local binaries in PATH            |
 | `PYTHON_VERSION`         | Build arg value                                              | devbuilder  | Python version to install              |
 | `DEV`                    | Build arg value                                              | devbuilder  | Development mode flag                  |
@@ -680,7 +722,7 @@ and executed in the Dockerfile RUN commands.
 
 Installs base utilities required for development.
 
-**Used by**: [`base`](#10-base-from-dev_parent_image)
+**Used by**: [`base`](#11-base-from-dev_parent_image)
 
 **Packages Installed**:
 
@@ -711,7 +753,7 @@ Installs common utilities and dependencies for the builder stage.
 
 Installs cloud provider CLI tools and infrastructure management tools.
 
-**Used by**: [`cloudtools`](#12-cloudtools-from-base)
+**Used by**: [`cloudtools`](#13-cloudtools-from-base)
 
 **Tools Installed**:
 
@@ -725,7 +767,7 @@ Installs cloud provider CLI tools and infrastructure management tools.
 
 Installs code-server (VS Code in the browser) from GitHub releases.
 
-**Used by**: [`codeserver`](#14-codeserver-from-devtools), [`codeserver-minimal`](#13-codeserver-minimal-from-base)
+**Used by**: [`codeserver`](#15-codeserver-from-devtools), [`codeserver-minimal`](#14-codeserver-minimal-from-base)
 
 **Installation Methods**:
 
@@ -749,7 +791,7 @@ Installs code-server (VS Code in the browser) from GitHub releases.
 
 Utility configurations for code-server containers.
 
-**Used by**: [`codeserver`](#14-codeserver-from-devtools), [`codeserver-minimal`](#13-codeserver-minimal-from-base)
+**Used by**: [`codeserver`](#15-codeserver-from-devtools), [`codeserver-minimal`](#14-codeserver-minimal-from-base)
 
 **Functions**:
 
@@ -761,7 +803,7 @@ Utility configurations for code-server containers.
 
 Creates and configures the non-root development user.
 
-**Used by**: [`devuser`](#8-devuser-from-devbuilder), [`brewuser`](#9-brewuser-from-devbuilder)
+**Used by**: [`devuser`](#9-devuser-from-devbuilder), [`brewuser`](#10-brewuser-from-devbuilder)
 
 **Key Functions**:
 
@@ -791,7 +833,7 @@ Creates and configures the non-root development user.
 
 Installs development tools and utilities.
 
-**Used by**: [`devtools`](#11-devtools-from-base)
+**Used by**: [`devtools`](#12-devtools-from-base)
 
 **Packages Installed**:
 
@@ -806,7 +848,7 @@ Installs development tools and utilities.
 
 Installs Git from source or uses system Git.
 
-**Used by**: [`devbuilder`](#7-devbuilder-from-builder)
+**Used by**: [`devbuilder`](#8-devbuilder-from-builder)
 
 **Installation Options**:
 
@@ -871,7 +913,7 @@ Installs Node.js and npm.
 
 Installs Python and configures Python environment.
 
-**Used by**: [`devtools`](#11-devtools-from-base)
+**Used by**: [`pybuilder`](#7-pybuilder-from-builder)
 
 **Installation Options**:
 

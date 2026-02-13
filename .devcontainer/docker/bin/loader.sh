@@ -34,7 +34,7 @@ __load_env() {
 #   dedupe "c,a,b,a,b" my_array
 # ! Caution: Uses eval to set variable by name for bash 3 compatibility
 dedupe() {
-    local str arr_name sort=true
+    local str arr_name sort=false
     if [ "$1" = "true" ] || [ "$1" = "false" ]; then
         sort="$1"
         shift
