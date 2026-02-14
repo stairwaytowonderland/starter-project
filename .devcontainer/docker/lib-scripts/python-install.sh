@@ -108,10 +108,9 @@ if [ "$PYTHON_VERSION" != "system" ] \
 
     LEVEL='ƒ' $LOGGER "Installing Python utilities..."
 
-    type git > /dev/null 2>&1 || update_and_install git
-
-    PACKAGES_TO_INSTALL="${PACKAGES_TO_INSTALL% } $(
+    ESSENTIAL_PACKAGES="${ESSENTIAL_PACKAGES% } $(
         cat << EOF
+git
 gcc
 xz-utils
 EOF
@@ -133,10 +132,16 @@ pkg-config
 EOF
     )"
 
-    __find_version_from_git_tags "python/cpython" "${PYTHON_VERSION}" "tags/v" "." \
-        && PYTHON_VERSION="${VERSION}"
+    for pkg in $ESSENTIAL_PACKAGES; do
+        if ! dpkg -s "$pkg" > /dev/null 2>&1; then
+            PACKAGES_TO_INSTALL="${PACKAGES_TO_INSTALL% } $pkg"
+        fi
+    done
 
     update_and_install "${PACKAGES_TO_INSTALL# }"
+
+    __find_version_from_git_tags "python/cpython" "${PYTHON_VERSION}" "tags/v" "." \
+        && PYTHON_VERSION="${VERSION}"
 
     major_version="$(get_major_version "$PYTHON_VERSION")"
 
