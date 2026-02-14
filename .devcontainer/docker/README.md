@@ -260,7 +260,7 @@ graph LR
 
 **Build Arguments**:
 
-- `USERNAME` (default: `vscode`) - Non-root user name
+- `USERNAME` (default: `devcontainer`) - Non-root user name
 - `USER_UID` (default: `1000`) - User ID
 - `USER_GID` (default: `$USER_UID`) - Group ID
 
@@ -287,7 +287,6 @@ graph LR
 **Build Arguments**:
 
 - `USERNAME`, `USER_UID`, `USER_GID` - User configuration
-- `GO_VERSION` (default: `latest`) - Go version to install
 
 **Key Features**:
 
@@ -341,7 +340,7 @@ graph LR
 
 **Build Arguments**:
 
-- `PYTHON_VERSION` (default: `latest`) - Python version to build from source
+- `PYTHON_VERSION` (default: `none`) - Python version to build from source
 - `PYTHON_INSTALL_PATH` (default: `/usr/local/python`) - Installation directory for compiled Python
 
 **Key Features**:
@@ -374,12 +373,12 @@ graph LR
 
 **Build Arguments**:
 
-- `USERNAME` (default: `vscode`), `USER_UID` (default: `1000`), `USER_GID` (default: `$USER_UID`) - User configuration
+- `USERNAME` (default: `devcontainer`), `USER_UID` (default: `1000`), `USER_GID` (default: `$USER_UID`) - User configuration
 - `BREW` (default: `/home/linuxbrew/.linuxbrew/bin/brew`) - Path to Homebrew binary
 - `FIXPATH` (default: `/usr/local/bin/fixpath.sh`) - Installation path for PATH fixing utility
 - `DEV` (default: `false`) - Development mode flag
 - `GIT_VERSION` (default: `latest`) - Git version (`latest`, `system`, or specific version)
-- `PYTHON_VERSION` (default: `latest`) - Python version to install
+- `PYTHON_VERSION` (default: `none`) - Python version to install
 - `PRE_COMMIT_ENABLED` (default: `false`) - Enable pre-commit hooks
 - `DEFAULT_ROOT_PASS` (default: `$DEV`) - Set default root password
 
@@ -482,7 +481,7 @@ graph LR
 **Build Arguments**:
 
 - `NO_BREW_UPDATE` (default: `$DEV`) - Skip brew update if true
-- `PYTHON_VERSION` (default: `latest`) - Python version to install
+- `PYTHON_VERSION` (default: `none`) - Python version to install
 - `PYTHON_INSTALL_PATH` (default: `/usr/local/python`) - Path to Python installation
 
 **Key Features**:
@@ -611,40 +610,46 @@ The Dockerfile accepts several build arguments for customization:
 
 ### Global Arguments (Available in Multiple Targets)
 
-| Argument           | Default     | Used In                                         | Description                                        |
-| ------------------ | ----------- | ----------------------------------------------- | -------------------------------------------------- |
-| `IMAGE_NAME`       | `ubuntu`    | builder                                         | Base image name (must be Debian-based)             |
-| `VARIANT`          | `latest`    | builder                                         | Base image tag/version                             |
-| `BASE_IMAGE`       | Computed    | builder                                         | Full base image reference (`$IMAGE_NAME:$VARIANT`) |
-| `DEV_PARENT_IMAGE` | `devuser`   | base                                            | Parent target (devuser or brewuser)                |
-| `USERNAME`         | `vscode`    | brewbuilder, gobuilder, nodebuilder, devbuilder | Non-root user name                                 |
-| `USER_UID`         | `1000`      | brewbuilder, gobuilder, nodebuilder, devbuilder | User ID for non-root user                          |
-| `USER_GID`         | `$USER_UID` | brewbuilder, gobuilder, nodebuilder, devbuilder | Group ID for non-root user                         |
+| Argument           | Default        | Used In                                         | Description                                        |
+| ------------------ | -------------- | ----------------------------------------------- | -------------------------------------------------- |
+| `IMAGE_NAME`       | `ubuntu`       | builder                                         | Base image name (must be Debian-based)             |
+| `VARIANT`          | `latest`       | builder                                         | Base image tag/version                             |
+| `BASE_IMAGE`       | Computed       | builder                                         | Full base image reference (`$IMAGE_NAME:$VARIANT`) |
+| `DEV_PARENT_IMAGE` | `devuser`      | base                                            | Parent target (devuser or brewuser)                |
+| `USERNAME`         | `devcontainer` | brewbuilder, gobuilder, nodebuilder, devbuilder | Non-root user name                                 |
+| `USER_UID`         | `1000`         | brewbuilder, gobuilder, nodebuilder, devbuilder | User ID for non-root user                          |
+| `USER_GID`         | `$USER_UID`    | brewbuilder, gobuilder, nodebuilder, devbuilder | Group ID for non-root user                         |
 
 ### Target-Specific Arguments
 
-| Argument               | Default                      | Target         | Description                                                 |
-| ---------------------- | ---------------------------- | -------------- | ----------------------------------------------------------- |
-| `LOGGER`               | `/usr/local/bin/logger.sh`   | filez, builder | Path to logger script                                       |
-| `PASSGEN`              | `/usr/local/bin/passgen.sh`  | filez, builder | Path to password generator script                           |
-| `DEFAULT_PASS_CHARSET` | `[:graph:]`                  | filez, builder | Default character set for password generation               |
-| `DEFAULT_PASS_LENGTH`  | `32`                         | filez, builder | Default password length                                     |
-| `TIMEZONE`             | `UTC`                        | builder        | Container timezone                                          |
-| `GO_VERSION`           | `latest`                     | gobuilder      | Go version to install                                       |
-| `NODE_VERSION`         | `lts`                        | nodebuilder    | Node.js version (lts, latest, or specific)                  |
-| `PYTHON_VERSION`       | `latest`                     | pybuilder      | Python version to build from source                         |
-| `PYTHON_INSTALL_PATH`  | `/usr/local/python`          | pybuilder      | Installation directory for compiled Python                  |
-| `DEV`                  | `false`                      | devbuilder     | Development mode flag                                       |
-| `GIT_VERSION`          | `system`                     | devbuilder     | Git version (system, latest, or specific)                   |
-| `PYTHON_VERSION`       | `devcontainer`               | devbuilder     | Python version (devcontainer, system, latest, or specific)  |
-| `PRE_COMMIT_ENABLED`   | `false`                      | devbuilder     | Install pre-commit hooks                                    |
-| `DEFAULT_ROOT_PASS`    | `false`                      | devbuilder     | Set default root password (dev only)                        |
-| `FIXPATH`              | `/usr/local/bin/fixpath.sh`  | devbuilder     | Installation path for PATH fixing utility (build-time only) |
-| `PIPX`                 | `/usr/local/bin/pipxpath.sh` | devbuilder     | Installation path for pipx wrapper script (build-time only) |
-| `PYTHON_INSTALL_PATH`  | `/usr/local/python`          | devtools       | Path to Python installation directory                       |
-| `BIND_ADDR`            | `0.0.0.0:13337`              | codeserver*    | code-server bind address                                    |
-| `DOWNLOAD_STANDALONE`  | `true`                       | codeserver*    | Install code-server as standalone tar.gz                    |
-| `NO_BREW_UPDATE`       | `$DEV`                       | devtools       | Skip Homebrew update during build                           |
+| Argument               | Default                                  | Target         | Description                                                 |
+| ---------------------- | ---------------------------------------- | -------------- | ----------------------------------------------------------- |
+| `LOGGER`               | `/usr/local/bin/logger.sh`               | filez, builder | Path to logger script                                       |
+| `PASSGEN`              | `/usr/local/bin/passgen.sh`              | filez, builder | Path to password generator script                           |
+| `DEFAULT_PASS_CHARSET` | `[:graph:]`                              | filez, builder | Default character set for password generation               |
+| `DEFAULT_PASS_LENGTH`  | `32`                                     | filez, builder | Default password length                                     |
+| `TIMEZONE`             | `UTC`                                    | builder        | Container timezone                                          |
+| `NODE_VERSION`         | `lts`                                    | nodebuilder    | Node.js version (lts, latest, or specific)                  |
+| `NODEPATH`             | `/usr/local/lib/node/nodejs`             | nodebuilder    | Node.js installation directory path                         |
+| `PYTHON_VERSION`       | `none`                                   | pybuilder      | Python version to build from source                         |
+| `PYTHON_INSTALL_PATH`  | `/usr/local/python`                      | pybuilder      | Installation directory for compiled Python                  |
+| `PACKAGE_CLEANUP`      | `false`                                  | pybuilder      | Remove build packages after Python compilation              |
+| `DEV`                  | `false`                                  | devbuilder     | Development mode flag                                       |
+| `GIT_VERSION`          | `latest`                                 | devbuilder     | Git version (system, latest, or specific)                   |
+| `PYTHON_VERSION`       | `none`                                   | devbuilder     | Python version (devcontainer, system, latest, or specific)  |
+| `PRE_COMMIT_ENABLED`   | `false`                                  | devbuilder     | Install pre-commit hooks                                    |
+| `DEFAULT_ROOT_PASS`    | `false`                                  | devbuilder     | Set default root password (dev only)                        |
+| `BREW`                 | `/home/linuxbrew/.linuxbrew/bin/brew`    | devbuilder     | Path to Homebrew binary                                     |
+| `FIXPATH`              | `/usr/local/bin/fixpath.sh`              | devbuilder     | Installation path for PATH fixing utility (build-time only) |
+| `PIPX`                 | `/usr/local/bin/pipxpath.sh`             | base           | Installation path for pipx wrapper script (build-time only) |
+| `PRE_COMMIT_ENABLED`   | `false`                                  | base           | Install pre-commit hooks via pipx/brew                      |
+| `DEFAULT_WORKSPACE`    | `/home/$USERNAME/workspace`              | base           | Default workspace directory                                 |
+| `PRE_COMMIT_ENABLED`   | `false`                                  | devtools       | Install pre-commit hooks via pipx/brew                      |
+| `NODEPATH`             | `/home/$USERNAME/.local/lib/node/nodejs` | devtools       | Node.js installation directory path                         |
+| `PYTHON_INSTALL_PATH`  | `/usr/local/python`                      | devtools       | Path to Python installation directory                       |
+| `NO_BREW_UPDATE`       | `$DEV`                                   | devtools       | Skip Homebrew update during build                           |
+| `BIND_ADDR`            | `0.0.0.0:13337`                          | codeserver*    | code-server bind address                                    |
+| `DOWNLOAD_STANDALONE`  | `true`                                   | codeserver*    | Install code-server as standalone tar.gz                    |
 
 ### Environment Variables Set in Dockerfile
 
@@ -653,8 +658,7 @@ The Dockerfile accepts several build arguments for customization:
 | `LOGGER`                 | `/usr/local/bin/logger.sh`                                   | builder     | Logger script path                     |
 | `TZ`                     | `$TIMEZONE`                                                  | builder     | Timezone                               |
 | `LANG`, `LC_ALL`         | `C.UTF-8`                                                    | builder     | Locale settings                        |
-| `DEBIAN_FRONTEND`        | `noninteractive`                                             | builder     | Prevent interactive prompts            |
-| `PASSGEN`                | `/usr/local/bin/passgen.sh`                                  | builder     | Password generator script path         |
+| `DASSGEN`                | `/usr/local/bin/passgen.sh`                                  | builder     | Password generator script path         |
 | `DEFAULT_PASS_LENGTH`    | `32`                                                         | builder     | Default password length                |
 | `DEFAULT_PASS_CHARSET`   | `[:graph:]`                                                  | builder     | Default password character set         |
 | `PATH`                   | `/usr/local/lib/nodejs/bin:$PATH`                            | nodebuilder | Node.js binaries in PATH               |

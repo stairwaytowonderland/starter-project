@@ -190,7 +190,7 @@ CMD ["/bin/bash"]
 
 FROM builder AS pybuilder
 
-ARG PYTHON_VERSION=latest
+ARG PYTHON_VERSION=none
 ARG PYTHON_INSTALL_PATH=/usr/local/python
 ARG PACKAGE_CLEANUP=false
 
@@ -233,7 +233,7 @@ ARG USER_UID=1000 \
     GIT_VERSION=latest \
     # Set default Python version
     # ('system' to use system Python, 'latest' to use latest Homebrew Python, or specify version like '3.9', '3.10', etc.)
-    PYTHON_VERSION=latest \
+    PYTHON_VERSION=none \
     # Whether to set default root password to 'docker' at build time
     # (for development purposes only; password can be changed at runtime)
     DEV=false \
@@ -422,7 +422,6 @@ RUN /tmp/lib-scripts/devtools-utils.sh \
 # Switch to non-root user
 USER $USERNAME
 
-# TODO: Make sure this is still accurate
 # Install Python, pipx, Poetry, uv, and other dev tools.
 # Do nothing if PYTHON_VERSION is 'devcontainer' or matches the USERNAME.
 # USERNAME cannot be 'system' or 'latest'.
