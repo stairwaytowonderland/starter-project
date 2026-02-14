@@ -199,7 +199,8 @@ COPY --chmod=755 .devcontainer/docker/lib-scripts/python-install.sh /tmp/lib-scr
 
 USER root
 
-RUN if [ "$PYTHON_VERSION" != "system" ] \
+RUN mkdir -p $PYTHON_INSTALL_PATH \
+  && if [ "$PYTHON_VERSION" != "system" ] \
     && [ "$PYTHON_VERSION" != "none" ] \
     && [ "$PYTHON_VERSION" != "devcontainer" ]; then \
       /tmp/lib-scripts/python-install.sh; \
@@ -374,13 +375,18 @@ COPY --chmod=755 .devcontainer/docker/lib-scripts/devtools-*.sh /tmp/lib-scripts
 
 ARG NODEPATH=/home/$USERNAME/.local/lib/node/nodejs \
     PYTHON_INSTALL_PATH=/usr/local/python
+
 ENV NODEJS_HOME=/home/$USERNAME/.local/lib/nodejs
 ENV PATH="$NODEJS_HOME/bin:$PATH"
+
+# Copy Node.js installation from nodebuilder
 COPY --from=nodebuilder --chown=$USERNAME:$USERNAME /usr/local/lib/node/nodejs $NODEPATH
 COPY --from=nodebuilder --chmod=755 /tmp/node-* /tmp/
 
 # Copy Python installation from pybuilder
 COPY --from=pybuilder $PYTHON_INSTALL_PATH $PYTHON_INSTALL_PATH
+# Copy Python installation scripts as fallback
+COPY --chmod=755 .devcontainer/docker/lib-scripts/python-install.sh /tmp/lib-scripts/
 
 USER root
 
@@ -390,15 +396,22 @@ RUN /tmp/lib-scripts/devtools-utils.sh \
     sed -i "2s|^|\nNODEPATH=$NODEPATH\n\n|" /tmp/node-install \
       && /tmp/node-install; \
   fi \
-  && sed -i "2s|^|\nPYTHON_INSTALL_PATH=$PYTHON_INSTALL_PATH\n\n|" "$PYTHON_INSTALL_PATH"/python-* \
-  && for f in "$PYTHON_INSTALL_PATH"/python-*-config; do \
-    if [ -x "$f" ]; then \
-      "$f"; \
+  && if [ -n "$(ls "$PYTHON_INSTALL_PATH")" ] && [ -n "$(ls "$PYTHON_INSTALL_PATH"/python-*)" ]; then \
+    sed -i "2s|^|\nPYTHON_INSTALL_PATH=$PYTHON_INSTALL_PATH\n\n|" "$PYTHON_INSTALL_PATH"/python-* \
+    && for f in "$PYTHON_INSTALL_PATH"/python-*-config; do \
+      if [ -x "$f" ]; then \
+        "$f"; \
+      fi; \
+    done \
+    # Remove system pre-commit to avoid conflicts with pipx installation
+    && if [ "$PRE_COMMIT_ENABLED" = "true" ] && type pre-commit >/dev/null 2>&1; then \
+      apt-get -y remove pre-commit || true; \
+    fi \
+  else \
+    if [ "$PYTHON_VERSION" = "system" ]; then \
+      # If Python installation is not copied from builder stage, run the installation script in this stage
+      /tmp/lib-scripts/python-install.sh; \
     fi; \
-  done \
-  # Remove system pre-commit to avoid conflicts with pipx installation
-  && if [ "$PRE_COMMIT_ENABLED" = "true" ] && type pre-commit >/dev/null 2>&1; then \
-    apt-get -y remove pre-commit || true; \
   fi \
   # Cleanup
   && apt-get -y autoremove \

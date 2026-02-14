@@ -8,36 +8,9 @@ set -e
 USE_PPA_IF_AVAILABLE="${USE_PPA_IF_AVAILABLE:-true}"
 PYTHON_INSTALL_PATH="${PYTHON_INSTALL_PATH:-"/usr/local/python"}"
 VERSION="${PYTHON_VERSION:-latest}"
-PACKAGE_CLEANUP="${PACKAGE_CLEANUP:-true}"
-BUILD_CLEANUP="${BUILD_CLEANUP:-true}"
 
 # shellcheck disable=SC1091
 . /helpers/install-helper.sh
-
-# LEVEL='ƒ' $LOGGER "Installing Python utilities..."
-
-PACKAGES_TO_INSTALL="${PACKAGES_TO_INSTALL% } $(
-    cat << EOF
-gcc
-xz-utils
-EOF
-)"
-
-PYTHON_BUILD_DEPENDENCIES="${PYTHON_BUILD_DEPENDENCIES% } $(
-        cat << EOF
-libbz2-dev
-libffi-dev
-libgdbm-dev
-liblzma-dev
-libncurses5-dev
-libreadline-dev
-libsqlite3-dev
-libxml2-dev
-libxmlsec1-dev
-tk-dev
-pkg-config
-EOF
-)"
 
 download_cpython_version() {
     LEVEL='*' $LOGGER "Downloading Python version ${1}..."
@@ -98,22 +71,76 @@ install_cpython() {
     fi
 }
 
-if [ "$VERSION" != "system" ] \
-    && [ "$VERSION" != "none" ] \
-    && [ "$VERSION" != "devcontainer" ]; then
+check_current_version() {
+    __python_version=$("python${2:-3}" --version)
+    if "python${2:-3}" --version | grep -q "Python ${1}"; then
+        LEVEL='!' $LOGGER "Requested Python version ${1} already installed."
+    fi
+    printf '%s\n' "${__python_version#* }"
+}
+
+updaterc() {
+    case "$(cat /etc/bash.bashrc)" in
+        *"$1"*) ;;
+        *) printf '\n%s\n' "$1" >> /etc/bash.bashrc ;;
+    esac
+}
+
+get_alternatives_priority() {
+    { update-alternatives --display "${1}${2-}" 2> /dev/null || echo "priority -1"; } | awk '/priority/ {print $NF}' | sort -n | head -n 1
+}
+
+update_alternatives() {
+    if type "${1}${2}" > /dev/null 2>&1; then
+        update-alternatives --install "${3:-$PYTHON_INSTALL_PATH}/bin/${1}${2%%.*}" "${1}${2%%.*}" "$(command -v "${1}${2}")" $(($(get_alternatives_priority "${1}" "${2%%.*}") + 1))
+        update-alternatives --install "${3:-$PYTHON_INSTALL_PATH}/bin/${1}" "${1}" "$(command -v "${1}${2}")" $(($(get_alternatives_priority "${1}") + 1))
+    fi
+}
+
+PYTHON_VERSION="$VERSION"
+
+if [ "$PYTHON_VERSION" != "system" ] \
+    && [ "$PYTHON_VERSION" != "none" ] \
+    && [ "$PYTHON_VERSION" != "devcontainer" ]; then
+
+    PACKAGE_CLEANUP="${PACKAGE_CLEANUP:-true}"
+    BUILD_CLEANUP="${BUILD_CLEANUP:-true}"
 
     LEVEL='ƒ' $LOGGER "Installing Python utilities..."
 
-    update_and_install "${PACKAGES_TO_INSTALL# }" git
+    type git > /dev/null 2>&1 || update_and_install git
 
-    __find_version_from_git_tags "python/cpython" "${VERSION}" "tags/v" "." \
+    PACKAGES_TO_INSTALL="${PACKAGES_TO_INSTALL% } $(
+        cat << EOF
+gcc
+xz-utils
+EOF
+    )"
+
+    PYTHON_BUILD_DEPENDENCIES="${PYTHON_BUILD_DEPENDENCIES% } $(
+        cat << EOF
+libbz2-dev
+libffi-dev
+libgdbm-dev
+liblzma-dev
+libncurses5-dev
+libreadline-dev
+libsqlite3-dev
+libxml2-dev
+libxmlsec1-dev
+tk-dev
+pkg-config
+EOF
+    )"
+
+    __find_version_from_git_tags "python/cpython" "${PYTHON_VERSION}" "tags/v" "." \
         && PYTHON_VERSION="${VERSION}"
+
+    update_and_install "${PACKAGES_TO_INSTALL# }"
 
     major_version="$(get_major_version "$PYTHON_VERSION")"
 
-    if "python${major_version}" --version | grep -q "Python ${PYTHON_VERSION%%.*}"; then
-        LEVEL='!' $LOGGER "Requested Python version ${PYTHON_VERSION} already installed."
-    fi
+    current_version="$(check_current_version "$PYTHON_VERSION" "$major_version")"
 
     install_cpython "$PYTHON_VERSION"
 
@@ -154,16 +181,21 @@ updaterc() {
     esac
 }
 
+get_alternatives_priority() {
+    { update-alternatives --display "\${1}\${2}" 2> /dev/null || echo "priority -1"; } | awk '/priority/ {print \$NF}' | sort -n | head -n 1
+}
+
 for py in python pip idle pydoc python-config; do
     [ -L "\${INSTALL_PATH}/bin/\${py}" ] || ln -s "\${INSTALL_PATH}/bin/\${py}${major_version}" "\${INSTALL_PATH}/bin/\${py}"
 done
 
-# updaterc "if [[ \"\${PATH}\" != *\"\${INSTALL_PATH}/bin\"* ]]; then export PATH=\${INSTALL_PATH}/bin:\${PATH}; fi"
+# updaterc "if [[ \"\${PATH}\" != *\"\${INSTALL_PATH}/bin\"* ]]; then export \"PATH=\${INSTALL_PATH}/bin:\${PATH}\"; fi"
 
 for py in python pip idle pydoc; do
-    priority=0
+    priority=\$((\$(get_alternatives_priority "\$py" "\$major_version") + 1))
+    [ "\$priority" -ge 0 ] || priority=\$((priority + 1))
     syspy="\$(readlink -f "${SYSTEM_PYTHON%/bin/python*}/bin/\${py}${major_version}")"
-    [ -x "\$syspy" ] && update-alternatives --install "\${ALTERNATIVES_PATH}/\${py}${major_version}" "\${py}${major_version}" "\$syspy" "\$priority" && priority="\$((priority + 1))"
+    [ ! -x "\$syspy" ] || update-alternatives --install "\${ALTERNATIVES_PATH}/\${py}${major_version}" "\${py}${major_version}" "\$syspy" "\$priority" && priority="\$((priority + 1))"
     {
         update-alternatives --install "\${ALTERNATIVES_PATH}/\${py}" "\${py}" "${INSTALL_PATH}/bin/\${py}" "\$priority";
         update-alternatives --install "\${ALTERNATIVES_PATH}/\${py}${major_version}" "\${py}${major_version}" "${INSTALL_PATH}/bin/\${py}${major_version}" "\$priority";
@@ -171,8 +203,9 @@ for py in python pip idle pydoc; do
 done
 for py in python-config python${major_version}-config; do
     syspy="\$(readlink -f "${SYSTEM_PYTHON%/bin/python*}/bin/\${py}")"
-    priority=0
-    [ -x "\$syspy" ] && update-alternatives --install "\${ALTERNATIVES_PATH}/\${py}" "\${py}" "\$syspy" "\$priority" && priority="\$((priority + 1))"
+    priority=\$((\$(get_alternatives_priority "\$py") + 1))
+    [ "\$priority" -ge 0 ] || priority=\$((priority + 1))
+    [ ! -x "\$syspy" ] || update-alternatives --install "\${ALTERNATIVES_PATH}/\${py}" "\${py}" "\$syspy" "\$priority" && priority="\$((priority + 1))"
     update-alternatives --install "\${ALTERNATIVES_PATH}/\${py}" "\${py}" "${INSTALL_PATH}/bin/\${py}" "\$priority" && priority="\$((priority + 1))"
 done
 EOF
@@ -208,49 +241,61 @@ done
 EOF
 
     LEVEL='√' $LOGGER "Done! Python utilities installation complete."
+
+elif [ "$PYTHON_VERSION" = "system" ]; then
+
+    type git > /dev/null 2>&1 || update_and_install git
+
+    __find_version_from_git_tags "python/cpython" "latest" "tags/v" "." \
+        && PYTHON_VERSION="${VERSION}"
+
+    major_version="${PYTHON_VERSION%%.*}"
+    major_minor_version="${PYTHON_VERSION%.*}"
+
+    current_version="$(check_current_version "$PYTHON_VERSION" "$major_version")"
+    current_major_minor_version="${current_version%.*}"
+
+    mkdir -p "${PYTHON_INSTALL_PATH}/bin"
+    update_alternatives python "$current_major_minor_version" "${PYTHON_INSTALL_PATH}"
+
+    if [ "$IMAGE_NAME" = "ubuntu" ] && [ "$USE_PPA_IF_AVAILABLE" = "true" ]; then
+
+        LEVEL='*' $LOGGER "Preparing to install Python version ${major_minor_version} to ${INSTALL_PATH}..."
+
+        PACKAGES_TO_INSTALL="${PACKAGES_TO_INSTALL% } $(
+            cat << EOF
+python${major_minor_version}
+python${major_minor_version}-venv
+python${major_minor_version}-dev
+pipx
+EOF
+        )"
+
+        add-apt-repository ppa:deadsnakes/ppa -y
+        update_and_install "${PACKAGES_TO_INSTALL# }"
+
+        update_alternatives python "$major_minor_version" "${PYTHON_INSTALL_PATH}"
+
+        updaterc "if [[ \"\${PATH}\" != *\"${PYTHON_INSTALL_PATH}/bin\"* ]]; then export \"PATH=${PYTHON_INSTALL_PATH}/bin:\${PATH}\"; fi"
+    else
+        LEVEL='*' $LOGGER "Preparing to install Python version ${major_version} to ${INSTALL_PATH}..."
+
+        PACKAGES_TO_INSTALL="${PACKAGES_TO_INSTALL% } $(
+            cat << EOF
+python${major_version}
+python${major_version}-pip
+python${major_version}-venv
+python${major_version}-dev
+pipx
+EOF
+        )"
+
+        update_and_install "${PACKAGES_TO_INSTALL# }"
+
+        update_alternatives python "$major_version" "${PYTHON_INSTALL_PATH}"
+
+        updaterc "if [[ \"\${PATH}\" != *\"${PYTHON_INSTALL_PATH}/bin\"* ]]; then export \"PATH=${PYTHON_INSTALL_PATH}/bin:\${PATH}\"; fi"
+    fi
+
+    LEVEL='√' $LOGGER "Done! Python utilities installation complete."
 fi
-
-# if [ "$PYTHON_VERSION" = "system" ] \
-#     || { ! type "$BREW" > /dev/null 2>&1 && [ "$PYTHON_VERSION" = "latest" ]; }; then
-
-#     if [ "$PYTHON_VERSION" = "latest" ]; then
-#         __find_version_from_git_tags "python/cpython" "latest" "tags/v" "." \
-#             && PYTHON_VERSION="${VERSION}"
-
-#         if python3 --version | grep -q "Python ${PYTHON_VERSION%%.*}"; then
-#             LEVEL='!' $LOGGER "Requested Python version ${PYTHON_VERSION} already installed."
-#         fi
-
-#         if [ "$IMAGE_NAME" = "ubuntu" ] && [ "$USE_PPA_IF_AVAILABLE" = "true" ]; then
-#             PACKAGES_TO_INSTALL="$(
-#                 cat << EOF
-# python3.14
-# python3.14-venv
-# python3.14-dev
-# pipx
-# EOF
-#             )"
-
-#             add-apt-repository ppa:deadsnakes/ppa -y
-#             update_and_install "${PACKAGES_TO_INSTALL# }"
-
-#             update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
-#             update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.14 2
-#         fi
-#     fi
-
-#     if [ -z "$PACKAGES_TO_INSTALL" ] && [ "$PYTHON_VERSION" = "latest" ]; then
-#         PACKAGES_TO_INSTALL="$(
-#             cat << EOF
-# python3
-# python3-pip
-# python3-venv
-# python3-dev
-# pipx
-# EOF
-#         )"
-#         install_packages "${PACKAGES_TO_INSTALL# }"
-#     fi
-# fi
-
-# LEVEL='√' $LOGGER "Done! Python utilities installation complete."
