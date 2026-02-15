@@ -208,8 +208,13 @@ showcolors() {
 }
 
 colors() {
-    for code in {0..255}
-        do echo -e "\\e[38;5;\${code}m"'\\\\e[38;5;'"\$code"m"\\e[0m"
+    for bg in {0..255}; do
+        for fg in {0..255}; do
+            echo -e "\\e[38;5;\${fg}m\\e[48;5;\${bg}m"'\\\\e[38;5;'"\$fg"m'\\\\e[48;5;'"\$bg"m'\\e[0m'
+        done
+    done
+    for fg in {0..255}; do
+        echo -e "\\e[38;5;\${fg}m"'\\\\e[38;5;'"\$fg"m'\\e[0m'
     done
 }
 
