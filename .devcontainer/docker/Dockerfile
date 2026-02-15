@@ -463,16 +463,21 @@ COPY --chmod=755 <<EOF /usr/local/bin/docker-entrypoint.sh
 
 set -eu
 
+COWFILES="\${COWFILES:-default three-eyes apt moose tux cock bunny bud-frogs}"
+
 if [ "\${RESET_ROOT_PASS:-$DEFAULT_ROOT_PASS}" = "true" ]
 then
   printf "\033[1m%s\033[0m\n" "Updating root password ..."
   sudo passwd root
 fi
 
-if type /usr/games/fortune >/dev/null 2>&1 \\
-  && type /usr/games/cowsay >/dev/null 2>&1
+if [ "\${SHOW_COWFORTUNE:-${SHOW_COWFORTUNE:-true}}" = "true" ]
 then
-  /usr/games/fortune | /usr/games/cowsay
+  if type /usr/games/fortune >/dev/null 2>&1 \\
+    && type /usr/games/cowsay >/dev/null 2>&1
+  then
+    /usr/games/fortune | /usr/games/cowsay -f "\$(echo \${COWFILES:-default} | xargs -n 1 | shuf -n 1)"
+  fi
 fi
 
 exec "\$@"
