@@ -8,8 +8,7 @@ set -e
 LEVEL='*' $LOGGER "Setting up code-server environment..."
 
 sed -i "s|\$LOGGER|$LOGGER|g" /usr/local/bin/start-code-server \
-    && sed -i "s|\$PASSGEN|$PASSGEN|g" /usr/local/bin/start-code-server \
-    && sed -i "s|\$DEV|$DEV|g" /usr/local/bin/start-code-server
+    && sed -i "s|\$PASSGEN|$PASSGEN|g" /usr/local/bin/start-code-server
 
 # shellcheck disable=SC1091
 . /helpers/install-helper.sh

@@ -1,0 +1,40 @@
+# For command cheatsheat, see https://www.nano-editor.org/dist/latest/cheatsheat.html
+# For nano reference, see https://www.nano-editor.org/dist/latest/nano.html
+# For nanorc reference, see https://www.nano-editor.org/dist/latest/nanorc.5.html
+
+# Inlude all .nanorc files
+include "/usr/share/nano/*.nanorc"
+
+# Options
+
+set tabsize 4     # set tab size to number of columns
+set tabstospaces  # converty typed tab to spaces
+set autoindent    # use auto-indentation
+set casesensitive # search is case-sensitive be default
+set constantshow  # always display the cursor position in status bar
+set cutfromcursor # cut only from the cursor instead of the whole line
+set indicator     # side bar for indicating cur position
+set smarthome     # `Home` jumps to line start first
+set afterends     # `Ctrl+Right` move to word ends instead of word starts
+set wordchars "_" # recognize '_' as part of a word
+set zap           # delete selected text as a whole
+set softwrap      # soft wrap
+set atblanks      # soft wrap at blank chars
+set positionlog   # remember cursor position in file
+set historylog    # remember search history
+# set linenumbers     # display line numbers in left gutter
+# set mouse           # enable mouse support
+# set locking         # vim-like file locks
+# set nohelp          # disable help when you are familiar enough
+
+set titlecolor bold,white,magenta
+set promptcolor black,cyan
+set statuscolor bold,white,magenta
+set errorcolor bold,white,red
+set spotlightcolor black,orange
+set selectedcolor lightwhite,cyan
+set stripecolor ,yellow
+set scrollercolor magenta
+set numbercolor magenta
+set keycolor lightmagenta
+set functioncolor magenta

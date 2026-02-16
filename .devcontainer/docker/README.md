@@ -22,11 +22,11 @@ A detailed guide to the multi-stage Dockerfile, build targets, library scripts, 
         │   ├── login.sh
         │   ├── publish.sh
         │   └── run.sh
+        ├── etc/                      # etc files to copy
+        │   └── profile.d/            # Profile includes
         ├── helpers/                  # Helper "scripts" with useful functions;
         │                               meant to be sourced from other scripts
         ├── lib-scripts/              # Container installer scripts
-        ├── profile.d/                # Profile includes
-        │   └── bash_colors.sh
         ├── scripts/                  # Container user scripts
         │   ├── post-start.sh
         │   └── start-code-server.sh

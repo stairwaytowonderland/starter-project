@@ -15,8 +15,9 @@ for this project.
     │   ├── bin/                # Shell scripts for container lifecycle management
     │   ├── helpers/            # Helper "scripts" with useful functions;
     │   │                         meant to be sourced from other scripts
+    │   ├── etc/                # etc files to copy
+    │   │   └── profile.d/      # Profile includes
     │   ├── lib-scripts/        # Container installer scripts
-    │   ├── profile.d/          # Profile includes
     │   ├── scripts/            # Container user scripts
     │   └── utils/              # Container utility scripts
     ├── devcontainer.json       # VS Code Dev Container configuration

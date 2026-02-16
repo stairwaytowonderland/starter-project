@@ -506,6 +506,8 @@ tux_alt() {
 TUX
 }
 
+COWFILES="\${COWFILES:-default three-eyes apt moose tux cock bunny bud-frogs}"
+
 if [ -t 1 ]
 then
     if __color_enabled
@@ -513,16 +515,22 @@ then
         trap __quit EXIT
         trap __control_c INT
     fi
-    printf "👋 Welcome to your development container...\n" >&2
-    if [ "\${SHOW_TUX:-$SHOW_TUX}" = "true" ]
+    if [ "\${SHOW_TUX:-${SHOW_TUX:-false}}" = "true" ]
     then
         tux >&2
-    elif [ "\${SHOW_TUX_ALT:-$SHOW_TUX_ALT}" = "true" ]
+    elif [ "\${SHOW_TUX_ALT:-${SHOW_TUX_ALT:-false}}" = "true" ]
     then
         tux_alt >&2
-    else
-        printf "🐧 %s 🐧\n" "Happy coding!" >&2
     fi
+    if [ "\${SHOW_COWFORTUNE:-${SHOW_COWFORTUNE:-true}}" = "true" ]
+    then
+        if type /usr/games/fortune >/dev/null 2>&1 \\
+            && type /usr/games/cowsay >/dev/null 2>&1
+        then
+            /usr/games/fortune | /usr/games/cowsay -f "\$(echo \${COWFILES:-default} | xargs -n 1 | shuf -n 1)"
+        fi
+    fi
+    printf "👋 Welcome to your development container...\n" >&2
 fi
 EOF
 

@@ -242,8 +242,7 @@ ARG USER_UID=1000 \
 # Update PATH here so that all shells contain the updated PATH
 ENV PATH="/home/$USERNAME/.local/bin:$PATH" \
     # Export PYTHON_VERSION for convenience
-    PYTHON_VERSION=$PYTHON_VERSION \
-    DEV=$DEV
+    PYTHON_VERSION=$PYTHON_VERSION
 
 COPY --chmod=755 .devcontainer/docker/utils/fixpath.sh $FIXPATH
 
@@ -298,6 +297,7 @@ FROM $DEV_PARENT_IMAGE AS base
 
 # Copy library scripts
 COPY --chmod=755 .devcontainer/docker/lib-scripts/base-*.sh /tmp/lib-scripts/
+
 # Copy post-start script
 COPY --chmod=755 .devcontainer/docker/scripts/post-start.sh /usr/local/bin/post-start
 
@@ -322,7 +322,8 @@ RUN sed -i "s|\$LOGGER|$LOGGER|g" /usr/local/bin/post-start \
   && rm -rf /tmp/* \
   # Create healthcheck lock file
   && touch /.healthcheck \
-  && chmod 666 /.healthcheck
+  && chmod 666 /.healthcheck \
+  && cp /etc/nanorc /etc/nanorc.default
 
 # Default user workspace directory
 ARG DEFAULT_WORKSPACE=/home/$USERNAME/workspace
@@ -348,8 +349,12 @@ RUN if ! type pre-commit >/dev/null 2>&1 && [ "$PRE_COMMIT_ENABLED" = "true" ]; 
   fi \
   && $PASSGEN -s 16 '[:alpha:]' > /.healthcheck
 
-COPY .devcontainer/docker/profile.d/bash_colors.sh /etc/profile.d/bash_colors.sh
 COPY --chmod=755 .devcontainer/docker/utils/healthcheck.sh /usr/local/bin/healthcheck.sh
+
+COPY .devcontainer/docker/etc/profile.d/* /etc/profile.d/
+
+ARG CUSTOM_NANORC=/etc/nanorc
+COPY .devcontainer/docker/etc/nanorc $CUSTOM_NANORC
 
 # docker inspect --format='{{json .State.Health}}' <container_id> | jq
 HEALTHCHECK --interval=5s --timeout=3s --start-period=1s --retries=3 \
@@ -463,21 +468,10 @@ COPY --chmod=755 <<EOF /usr/local/bin/docker-entrypoint.sh
 
 set -eu
 
-COWFILES="\${COWFILES:-default three-eyes apt moose tux cock bunny bud-frogs}"
-
 if [ "\${RESET_ROOT_PASS:-$DEFAULT_ROOT_PASS}" = "true" ]
 then
   printf "\033[1m%s\033[0m\n" "Updating root password ..."
   sudo passwd root
-fi
-
-if [ "\${SHOW_COWFORTUNE:-true}" = "true" ]
-then
-  if type /usr/games/fortune >/dev/null 2>&1 \\
-    && type /usr/games/cowsay >/dev/null 2>&1
-  then
-    /usr/games/fortune | /usr/games/cowsay -f "\$(echo \${COWFILES:-default} | xargs -n 1 | shuf -n 1)"
-  fi
 fi
 
 exec "\$@"
