@@ -9,7 +9,7 @@ BIND_ADDR="${BIND_ADDR:-0.0.0.0:13337}"
 # CODESERVER_PORT="${BIND_ADDR##*:}"
 
 # Enable debug mode (immediately open prompt) if DEBUG=true
-[ "$DEBUG" != "true" ] || exec /bin/bash
+[ "${DEBUG:-$DEBUG}" != "true" ] || exec /bin/bash
 
 if ! type "$CODESERVER" > /dev/null 2>&1; then
     LEVEL=error $LOGGER "code-server not found at expected location: $CODESERVER" >&2

@@ -471,7 +471,7 @@ then
   sudo passwd root
 fi
 
-if [ "\${SHOW_COWFORTUNE:-${SHOW_COWFORTUNE:-true}}" = "true" ]
+if [ "\${SHOW_COWFORTUNE:-true}" = "true" ]
 then
   if type /usr/games/fortune >/dev/null 2>&1 \\
     && type /usr/games/cowsay >/dev/null 2>&1
@@ -540,14 +540,13 @@ RUN /tmp/lib-scripts/codeserver-utils.sh \
 #   && curl -fsSL https://code-server.dev/install.sh | sh \
 #   && $LOGGER "code-server installation complete."
 
-ARG BIND_ADDR=0.0.0.0:13337
+ARG BIND_ADDR=0.0.0.0:13337 \
+    DOWNLOAD_STANDALONE=true
 ENV BIND_ADDR=$BIND_ADDR \
     # Don't put CODE_SERVER_CONFIG in workspace directly to avoid issues with volume mounts
     CODE_SERVER_WORKSPACE=$DEFAULT_WORKSPACE \
     CODE_SERVER_CONFIG=/home/$USERNAME/.config/code-server/config.yaml \
-    CODE_SERVER_EXTENSIONS=$DEFAULT_WORKSPACE/.code-server/extensions/extensions.json \
-    DOWNLOAD_STANDALONE=true \
-    DEBUG=false
+    CODE_SERVER_EXTENSIONS=$DEFAULT_WORKSPACE/.code-server/extensions/extensions.json
 
 # If standalone download is false, use root to install the .deb package
 # If standalone download is true use $USERNAME to install the tar.gz package
@@ -608,7 +607,8 @@ RUN /tmp/lib-scripts/codeserver-utils.sh \
 #   && curl -fsSL https://code-server.dev/install.sh | sh \
 #   && $LOGGER "code-server installation complete."
 
-ARG BIND_ADDR=0.0.0.0:13337
+ARG BIND_ADDR=0.0.0.0:13337 \
+    DOWNLOAD_STANDALONE=true
 ENV BIND_ADDR=$BIND_ADDR \
     # Don't put CODE_SERVER_CONFIG in workspace directly to avoid issues with volume mounts
     CODE_SERVER_WORKSPACE=$DEFAULT_WORKSPACE \

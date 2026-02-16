@@ -553,7 +553,6 @@ graph LR
 - `CODE_SERVER_WORKSPACE` - Workspace directory
 - `CODE_SERVER_CONFIG` - Config file path
 - `CODE_SERVER_EXTENSIONS` - Extensions JSON path
-- `DEBUG` - Debug mode flag
 
 **Exposed Ports**: Port from `BIND_ADDR` (default: 13337)
 
@@ -574,6 +573,18 @@ graph LR
 **Purpose**: Web-based VS Code with Python, Node.js, and development tools pre-installed.
 
 **Uses**: [`codeserver-install.sh`](#codeserver-installsh), [`codeserver-utils.sh`](#codeserver-utilssh)
+
+**Build Arguments**:
+
+- `BIND_ADDR` (default: `0.0.0.0:13337`) - code-server bind address
+- `DOWNLOAD_STANDALONE` (default: `true`) - Install as standalone tar.gz
+
+**Environment Variables**:
+
+- `BIND_ADDR` - Bind address for code-server
+- `CODE_SERVER_WORKSPACE` - Workspace directory
+- `CODE_SERVER_CONFIG` - Config file path
+- `CODE_SERVER_EXTENSIONS` - Extensions JSON path
 
 **Key Features**:
 
