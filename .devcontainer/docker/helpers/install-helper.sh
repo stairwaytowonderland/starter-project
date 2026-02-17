@@ -37,9 +37,13 @@ __get_arch() {
         x86_64 | amd64)
             _download_arch=amd64
             ;;
-        aarch64 | arm64)
+        aarch64 | armv8* | arm64)
             _download_arch=arm64
             ;;
+        aarch32 | armv7* | armvhf*)
+            _download_arch=arm
+            ;;
+        i?86) _download_arch=386 ;;
         *)
             LEVEL=error $LOGGER "Unsupported architecture: $_platform_arch"
             return 1
@@ -52,6 +56,13 @@ __get_arch() {
 get_major_version() { echo "$1" | cut -d. -f1; }
 get_minor_version() { echo "$1" | cut -d. -f2; }
 get_patch_version() { echo "$1" | cut -d. -f3; }
+
+ensure_root() {
+    if [ "$(id -u)" -ne 0 ]; then
+        LEVEL='error' $LOGGER '(!)' "This script must be run as root. Current user ID: $(id -u)"
+        return 1
+    fi
+}
 
 install_packages() {
     # shellcheck disable=SC2086
