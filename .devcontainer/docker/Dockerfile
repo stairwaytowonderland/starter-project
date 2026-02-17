@@ -224,7 +224,6 @@ FROM builder AS devbuilder
 ARG USER_UID=1000 \
     USER_GID=$USER_UID \
     USERNAME=devcontainer \
-    # Development mode flag
     FIXPATH=/usr/local/bin/fixpath.sh \
     # Default path to Homebrew binary (for convenience; not likely to change)
     BREW=/home/linuxbrew/.linuxbrew/bin/brew \
@@ -234,10 +233,16 @@ ARG USER_UID=1000 \
     # Set default Python version
     # ('system' to use system Python, 'latest' to use latest Homebrew Python, or specify version like '3.9', '3.10', etc.)
     PYTHON_VERSION=none \
+    # Development mode flag
+    DEV=false \
     # Whether to set default root password to 'docker' at build time
     # (for development purposes only; password can be changed at runtime)
-    DEV=false \
-    DEFAULT_ROOT_PASS=$DEV
+    DEFAULT_ROOT_PASS=$DEV \
+    # Whether to download unimatrix
+    # (unimatrix is a fun terminal screensaver that runs a matrix-style animation;
+    # it has no functional purpose but can be a fun addition to the devcontainer for some users.
+    # unimatrix has a tiny footprint, so it's enabled by default.)
+    UNIMATRIX_ENABLED=true
 
 # Update PATH here so that all shells contain the updated PATH
 ENV PATH="/home/$USERNAME/.local/bin:$PATH" \
@@ -296,7 +301,7 @@ CMD ["sh", "-c", "exec $BREW"]
 FROM $DEV_PARENT_IMAGE AS base
 
 # Copy library scripts
-COPY --chmod=755 .devcontainer/docker/lib-scripts/base-*.sh /tmp/lib-scripts/
+COPY --chmod=755 .devcontainer/docker/lib-scripts/base*.sh /tmp/lib-scripts/
 
 # Copy post-start script
 COPY --chmod=755 .devcontainer/docker/scripts/post-start.sh /usr/local/bin/post-start
@@ -315,7 +320,7 @@ ARG PRE_COMMIT_ENABLED=false
 RUN sed -i "s|\$LOGGER|$LOGGER|g" /usr/local/bin/post-start \
   && sed -i "s|\$PIPX|$PIPX|g" $PIPX \
   && sed -i "s|\$BREW|$BREW|g" $PIPX \
-  && /tmp/lib-scripts/base-utils.sh \
+  && /tmp/lib-scripts/base.sh \
   # Cleanup
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/* \
@@ -372,8 +377,6 @@ CMD ["healthcheck.sh"]
 
 
 FROM base AS devtools
-
-ARG PRE_COMMIT_ENABLED=false
 
 # Copy library scripts
 COPY --chmod=755 .devcontainer/docker/lib-scripts/devtools-*.sh /tmp/lib-scripts/
