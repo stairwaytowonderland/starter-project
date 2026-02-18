@@ -112,7 +112,10 @@
 	"remoteEnv": {
 		"PATH": "/home/linuxbrew/.linuxbrew/bin:${containerEnv:PATH}",
 		"IGNOREEOF": "2",
-		"UNIMATRIX_ENABLED": "true",
+		// "SHOW_TUX": "true",
+		"SHOW_ALIASES": "true",
+		"SHOW_FORTUNECOW": "true",
+		// "SHOW_MATRIX": "true",
 		"PARTY_PS1": "true"
 		// "PS1_USER_COLOR": "38;5;039",
 		// "PS1_AT_COLOR": "38;5;202",

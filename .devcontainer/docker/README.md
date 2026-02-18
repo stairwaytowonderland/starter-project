@@ -1179,15 +1179,15 @@ Builds the Docker image from the Dockerfile.
 #### <ins>Usage</ins>
 
 ```bash
-build.sh <image-name[:build_target]> [build-args...] [options] [context]
+build.sh <image-name[:<build_target>]> [<build-args...>] [<options>] [<context>]
 ```
 
 **Arguments:**
 
-- `image-name[:build_target]` - Image name with optional build target (e.g., `starter-project:devcontainer`)
-- `build-args` - Build arguments passed to `docker build` (e.g., `--build-arg USERNAME=vscode`)
-- `options` - Additional Docker build options (e.g., `--no-cache`, `--progress=plain`)
-- `context` - Docker build context path (default: workspace root)
+- `<image-name[:<build_target>]>` - Image name with optional build target (e.g., `starter-project:base`)
+- `<build-args>` - Build arguments passed to `docker build` (e.g., `--build-arg USERNAME=vscode`)
+- `<options>` - Additional Docker build options (e.g., `--no-cache`, `--progress=plain`)
+- `<context>` - Docker build context path (default: workspace root)
 
 **Environment Variables:**
 
@@ -1229,14 +1229,14 @@ Runs the Docker container with the workspace mounted.
 #### <ins>Usage</ins>
 
 ```bash
-run.sh <image-name[:build_target]> [remote-user] [commands] [context]
+run.sh <image-name[:<build_target>]> [<remote-user>] [<commands>] [<context>]
 ```
 
 **Arguments:**
 
-- `image-name[:build_target]` - Image name with optional build target (required)
-- `remote-user` - Username inside container (default: `devcontainer`)
-- `context` - Local directory to mount as workspace (default: workspace root)
+- `<image-name[:<build_target>]>` - Image name with optional build target (required)
+- `<remote-user>` - Username inside container (default: `devcontainer`)
+- `<context>` - Local directory to mount as workspace (default: workspace root)
 
 **Environment Variables:**
 
@@ -1275,14 +1275,14 @@ Publishes the Docker image to GitHub Container Registry. Also performs cleanup b
 #### <ins>Usage</ins>
 
 ```bash
-publish.sh <image-name[:build_target]> [github-username] [image-version]
+publish.sh <image-name[:<build_target>]> [<github-username>] [<image-version>]
 ```
 
 **Arguments:**
 
-- `image-name[:build_target]` - Image name with optional build target (required)
-- `github-username` - GitHub username (required, can use `REGISTRY_USER` env var)
-- `image-version` - Version tag for the image (default: `latest`)
+- `<image-name[:<build_target>]>` - Image name with optional build target (required)
+- `<github-username>` - GitHub username (required, can use `REGISTRY_USER` env var)
+- `<image-version>` - Version tag for the image (default: `latest`)
 
 **Environment Variables:**
 
@@ -1302,7 +1302,7 @@ publish.sh <image-name[:build_target]> [github-username] [image-version]
 
 # Publish with all arguments
 CR_PAT=<your-github-token> ./.devcontainer/docker/bin/publish.sh \
-    starter-project:devcontainer \
+    starter-project:<target> \
     stairwaytowonderland \
     latest
 

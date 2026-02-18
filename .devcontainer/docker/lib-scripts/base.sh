@@ -140,6 +140,16 @@ then
     then
         tux_alt >&2
     fi
+    if [ "\${SHOW_FORTUNECOW:-false}" = "true" ]
+    then
+        if type /usr/games/fortune >/dev/null 2>&1 \\
+            && type /usr/games/cowsay >/dev/null 2>&1
+        then
+            echo -en "\${C_ESQ}2m" >&2
+            /usr/games/fortune | /usr/games/cowsay -f "\$(cowfile)" >&2
+            echo -en "\${C_RESET}" >&2
+        fi
+    fi
     if [ "\${SHOW_ALIASES:-false}" = "true" ]
     then
         if type /usr/games/cowthink >/dev/null 2>&1
@@ -147,14 +157,6 @@ then
             aliascow /usr/games/cowthink >&2
         else
             aliases >&2
-        fi
-    fi
-    if [ "\${SHOW_FORTUNECOW:-false}" = "true" ]
-    then
-        if type /usr/games/fortune >/dev/null 2>&1 \\
-            && type /usr/games/cowsay >/dev/null 2>&1
-        then
-            /usr/games/fortune | /usr/games/cowsay -f "\$(cowfile)" >&2
         fi
     fi
     printf "👋 Welcome to your development container...\n" >&2

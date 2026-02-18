@@ -2,7 +2,7 @@
 # shellcheck disable=SC1091
 
 # [REMOTE_HUB=<your-remote-hub>] ./.devcontainer/docker/bin/run.sh \
-#   starter-project:devcontainer \
+#   starter-project:<target> \
 #   vscode \
 #   .
 
