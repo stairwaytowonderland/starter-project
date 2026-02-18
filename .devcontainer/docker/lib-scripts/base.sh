@@ -39,10 +39,6 @@ LEVEL='√' $LOGGER "Done! Base utilities installation complete."
 LEVEL='ƒ' $LOGGER "Setting up bash aliases..."
 
 cat << EOF | tee -a "/home/$USERNAME/.bash_aliases" /root/.bash_aliases > /dev/null
-showmatrix() {
-    unimatrix -af -l 'k' -s "\${2:-98}" -t "\${1:-2}" -i
-}
-
 tux() {
     cat <<'TUX'
            _..._
@@ -104,11 +100,33 @@ TUX
 
 COWFILES="\${COWFILES:-default three-eyes apt moose tux cock bunny bud-frogs}"
 
+cowfile() { echo \${COWFILES:-default} | xargs -n 1 | shuf -n 1; }
+aliases() { echo -e "\${C_ESQ}2m\$(alias)\${C_RESET}"; }
+aliascow() {
+    local com="\${1:-/usr/games/cowthink}"
+    if [ -n "\${com-}" ]
+    then
+        shift
+        local lines=\$(alias | wc -l) count=1 length= suffix= opts=()
+        while read -r line; do
+            [ \$(echo "\$line" | wc -L) -lt "\${ALIAS_COW_LENGTH:-72}" ] || { suffix="\n"; break; }
+        done <<<\$(alias)
+        [ -z "\$suffix" ] && opts+=("-n") || opts+=("-W\${ALIAS_COW_LENGTH:-72}")
+        set - "\${opts[@]}"
+        echo -en "\${C_ESQ}2m"
+        alias | while read -r line; do
+            echo -e "\${line}\${suffix}"
+        done | "\$com" -f "\$(cowfile)" \$@
+        echo -en "\${C_RESET}"
+    fi
+}
+showmatrix() { unimatrix -af -l 'k' -s "\${2:-98}" -t "\${1:-2}" -i; }
+
 if [ -t 1 ]
 then
-    if [ "\${UNIMATRIX_ENABLED:-false}" = "true" ]
+    if type unimatrix >/dev/null 2>&1 && [ "\${SHOW_MATRIX:-false}" = "true" ]
     then
-        showmatrix "\${UNIMATRIX_TIME-}" "\${UNIMATRIX_SPEED-}"
+        showmatrix "\${MATRIX_TIME-}" "\${MATRIX_SPEED-}"
     fi
     if __color_enabled
     then
@@ -122,12 +140,21 @@ then
     then
         tux_alt >&2
     fi
-    if [ "\${SHOW_COWFORTUNE:-true}" = "true" ]
+    if [ "\${SHOW_ALIASES:-false}" = "true" ]
+    then
+        if type /usr/games/cowthink >/dev/null 2>&1
+        then
+            aliascow /usr/games/cowthink >&2
+        else
+            aliases >&2
+        fi
+    fi
+    if [ "\${SHOW_FORTUNECOW:-false}" = "true" ]
     then
         if type /usr/games/fortune >/dev/null 2>&1 \\
             && type /usr/games/cowsay >/dev/null 2>&1
         then
-            /usr/games/fortune | /usr/games/cowsay -f "\$(echo \${COWFILES:-default} | xargs -n 1 | shuf -n 1)"
+            /usr/games/fortune | /usr/games/cowsay -f "\$(cowfile)" >&2
         fi
     fi
     printf "👋 Welcome to your development container...\n" >&2

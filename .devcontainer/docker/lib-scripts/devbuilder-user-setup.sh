@@ -254,6 +254,7 @@ __color_enabled() {
 }
 
 __exit_status() {
+    local exit_code="\${1:-0}"
     local icon_success="✔"
     local icon_failure="✘"
     local icon_debian="꩜"
@@ -263,19 +264,19 @@ __exit_status() {
     then
         if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null
         then
-            if [ "\$1" -eq 0 ]
+            if [ "\${exit_code}" -eq 0 ]
             then
                 echo -en "\\001\${success_color}\\002\${icon_debian}\\001\${C_RESET}\\002 "
             else
-                echo -en "\\001\${error_color}\\002\${icon_debian} (\${1})\\001\${C_RESET}\\002 "
+                echo -en "\\001\${error_color}\\002\${icon_debian} (\${exit_code})\\001\${C_RESET}\\002 "
             fi
         fi
     else
-        if [ "\$1" -eq 0 ]
+        if [ "\${exit_code}" -eq 0 ]
         then
             echo -en "\${icon_success} "
         else
-            echo -en "\${icon_failure} (\${1}) "
+            echo -en "\${icon_failure} (\${exit_code}) "
         fi
     fi
 }
