@@ -356,7 +356,7 @@ RUN if ! type pre-commit >/dev/null 2>&1 && [ "$PRE_COMMIT_ENABLED" = "true" ]; 
 
 COPY --chmod=755 .devcontainer/docker/utils/healthcheck.sh /usr/local/bin/healthcheck.sh
 
-COPY .devcontainer/docker/etc/profile.d/* /etc/profile.d/
+COPY .devcontainer/docker/etc/profile.d/*.sh /etc/profile.d/
 
 ARG CUSTOM_NANORC=/etc/nanorc
 COPY .devcontainer/docker/etc/nanorc $CUSTOM_NANORC

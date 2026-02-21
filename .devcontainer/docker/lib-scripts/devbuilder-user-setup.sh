@@ -150,7 +150,7 @@ C_BRIGHT_MAGENTA_BOLD="\${C_ESQ}1;95m" C_BRIGHT_CYAN_BOLD="\${C_ESQ}1;96m" \\
 C_WHITE="\${C_ESQ}97m" C_WHITE_BOLD="\${C_ESQ}1;97m" \\
 C_BLACK="\${C_ESQ}30m" C_BLACK_BOLD="\${C_ESQ}1;30m"
 
-ps1_colors() {
+__ps1_enhance() {
     for var_def in \\
         "PS1_USER_COLOR:38;5;198" \\
         "PS1_AT_COLOR:38;5;214" \\
@@ -186,7 +186,7 @@ ps1_colors() {
         printf -v "\$var_name" "%s" "\$val"
     done
 }
-ps1_colors
+__ps1_enhance
 
 EOF
 done
@@ -195,7 +195,15 @@ cat << EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
 
 PATH="\$($FIXPATH)"
 
-showcolors() {
+if ! shopt login_shell >/dev/null
+then
+    for f in /etc/profile.d/*.sh
+    do
+        [ -r "\$f" ] && . "\$f"
+    done
+fi
+
+ps1colors() {
     for var in PS1_USER_COLOR PS1_AT_COLOR PS1_ERROR_COLOR PS1_SUCCESS_COLOR PS1_GIT_BRANCH_COLOR PS1_HOSTNAME_COLOR
     do
         val="\${!var}"
@@ -204,17 +212,6 @@ showcolors() {
             val="\${!varname_to_expand}"
         fi
         printf "\${val}%s=%s\${C_DEFAULT}\n" "\$var" "\$val"
-    done
-}
-
-colors() {
-    for bg in {0..255}; do
-        for fg in {0..255}; do
-            echo -e "\\e[38;5;\${fg}m\\e[48;5;\${bg}m"'\\\\e[38;5;'"\$fg"m'\\\\e[48;5;'"\$bg"m'\\e[0m'
-        done
-    done
-    for fg in {0..255}; do
-        echo -e "\\e[38;5;\${fg}m"'\\\\e[38;5;'"\$fg"m'\\e[0m'
     done
 }
 
@@ -398,11 +395,6 @@ fi
 if [ -f ~/.bash_aliases ]
 then
     . ~/.bash_aliases
-fi
-
-if [ -f /etc/profile.d/bash_colors.sh ] && ! shopt login_shell >/dev/null
-then
-    . /etc/profile.d/bash_colors.sh
 fi
 EOF
 
