@@ -43,8 +43,8 @@ colorgrid8() {
 
 colorgrid8_with_brightness() {
     local cols="${1:-8}" bgchar="${2-}" base bright i
-    [ -n "$bgchar" ] || bgchar="█"
     ((cols > 0)) || return $?
+    [ -n "$bgchar" ] || bgchar="█"
     base=(30 90)
     for bright in "${base[@]}"; do
         for i in {0..7}; do
@@ -197,12 +197,14 @@ colors() {
     [ -z "${1-}" ] || shift
     if $extended; then
         colors256 $sameline
+        [ "$sameline" != "true" ] || echo
         colorgrid256 "$cols" "$bgchar"
     else
         colors8_with_brightness $sameline
         [ "$sameline" != "true" ] || echo
         colorgrid8_with_brightness "$cols" "$bgchar"
     fi
+    [ "$cols" -le 8 ] || echo
 }
 
 if [ "$0" = "${BASH_SOURCE[0]}" ]; then
