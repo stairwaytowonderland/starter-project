@@ -57,9 +57,12 @@ colorgrid8_with_brightness() {
 }
 
 colors256() {
-    local sameline="${1:-false}" cols=8 bg fg
-    for bg in {0..255}; do
-        for fg in {0..255}; do
+    local sameline="${1:-false}" range=256 cols=8 colors bg fg
+    # shellcheck disable=SC2207
+    colors=($(seq 0 $((range - 1))))
+    cols=$((cols % range))
+    for bg in "${colors[@]}"; do
+        for fg in "${colors[@]}"; do
             printf "\e[38;5;%03dm\e[48;5;%03dm"'\\e[38;5;'"%03d"m'\\e[48;5;'"%03d"m'\e[0m' "$fg" "$bg" "$fg" "$bg"
             [ "$sameline" != "true" ] || if (((fg + 1) % (cols / 2) == 0)); then
                 printf "\e[38;5;%03dm"'\\e[38;5;'"%03d"m'\e[0m' "$fg" "$fg"
@@ -70,7 +73,7 @@ colors256() {
         done
     done
     if [ "$sameline" != "true" ]; then
-        for fg in {0..255}; do
+        for fg in "${colors[@]}"; do
             printf "\e[38;5;%03dm"'\\e[38;5;'"%03d"m'\e[0m' "$fg" "$fg"
             if (((fg + 1) % cols == 0)); then
                 printf "\n"
@@ -80,16 +83,18 @@ colors256() {
 }
 
 colors8() {
-    local isbright="${1:-false}" sameline="${2:-false}" base colors bg fg
+    local isbright="${1:-false}" sameline="${2:-false}" range=8 cols base colors bg fg
     $isbright && base=90 || base=30
-    colors=(0 1 2 3 4 5 6 7)
+    # shellcheck disable=SC2207
+    colors=($(seq 0 $((range - 1))))
+    cols="${#colors[@]}"
     for fg in "${colors[@]}"; do
         for bg in "${colors[@]}"; do
             printf "\e[%dm\e[%dm"'\\e['"%dm\\e['"%dm'\e[0m' "$((base + fg))" "$((base + bg + 10))" "$((base + fg))" "$((base + bg + 10))"
-            [ "$sameline" != "true" ] || if (((bg + 1) % 8 == 0)); then
+            [ "$sameline" != "true" ] || if (((bg + 1) % cols == 0)); then
                 printf "\e[%dm"'\\e['"%d"m'\e[0m' "$((base + fg))" "$((base + fg))"
             fi
-            if (((bg + 1) % 8 == 0)); then
+            if (((bg + 1) % cols == 0)); then
                 printf "\n"
             fi
         done
@@ -97,7 +102,7 @@ colors8() {
     if [ "$sameline" != "true" ]; then
         for fg in "${colors[@]}"; do
             printf "\e[%dm"'\\e['"%d"m'\e[0m' "$((base + fg))" "$((base + fg))"
-            if (((fg + 1) % 8 == 0)); then
+            if (((fg + 1) % cols == 0)); then
                 printf "\n"
             fi
         done
@@ -105,17 +110,19 @@ colors8() {
 }
 
 colors8_with_brightness() {
-    local sameline="${1:-false}" base colors bg fg bright
+    local sameline="${1:-false}" range=8 cols base colors bg fg bright
     base=(30 90)
-    colors=(0 1 2 3 4 5 6 7)
+    # shellcheck disable=SC2207
+    colors=($(seq 0 $((range - 1))))
+    cols="${#colors[@]}"
     for bright in "${base[@]}"; do
         for fg in "${colors[@]}"; do
             for bg in "${colors[@]}"; do
                 printf "\e[%dm\e[%dm"'\\e['"%dm\\e['"%dm'\e[0m' "$((bright + fg))" "$((bright + bg + 10))" "$((bright + fg))" "$((bright + bg + 10))"
-                [ "$sameline" != "true" ] || if (((bg + 1) % 8 == 0)); then
+                [ "$sameline" != "true" ] || if (((bg + 1) % cols == 0)); then
                     printf "\e[%dm"'\\e['"%d"m'\e[0m' "$((bright + fg))" "$((bright + fg))"
                 fi
-                if (((bg + 1) % 8 == 0)); then
+                if (((bg + 1) % cols == 0)); then
                     printf "\n"
                 fi
             done
@@ -125,7 +132,7 @@ colors8_with_brightness() {
         for bright in "${base[@]}"; do
             for fg in "${colors[@]}"; do
                 printf "\e[%dm"'\\e['"%d"m'\e[0m' "$((bright + fg))" "$((bright + fg))"
-                if (((fg + 1) % 8 == 0)); then
+                if (((fg + 1) % cols == 0)); then
                     printf "\n"
                 fi
             done
@@ -134,7 +141,7 @@ colors8_with_brightness() {
 }
 
 colorsusage() {
-    local script_name='colors'
+    local script_name='colors' exit="${1-}"
     [ "$0" != "${BASH_SOURCE[0]}" ] || script_name="${0##*/}"
     cat << EOF
 Usage: $script_name [OPTION]... [GRID_COLS]
@@ -163,10 +170,12 @@ Additional Examples:
 \$ $script_name -256 -n -b '██' 16
 \$ $script_name 4
 EOF
+
+    [ -z "$exit" ] || return "$exit"
 }
 
 colors() {
-    local extended=false sameline=false cols=8 bgchar
+    local extended=false sameline=false _cols=8 cols bgchar _missing
     while [ "$#" -gt 0 ]; do
         case "$1" in
             -256 | --extended)
@@ -174,8 +183,14 @@ colors() {
                 shift
                 ;;
             -b | --bgchar)
-                [ -n "${2-}" ] && bgchar="$2"
-                shift 2
+                if [ -n "${2-}" ]; then
+                    bgchar="$2"
+                    shift 2
+                else
+                    _missing="$1"
+                    shift
+                    break
+                fi
                 ;;
             -n | --same-line)
                 sameline=true
@@ -193,20 +208,32 @@ colors() {
                 ;;
         esac
     done
-    cols="${1-}"
-    [ -z "${1-}" ] || shift
-    if $extended; then
-        colors256 $sameline
-        [ "$sameline" != "true" ] || echo
-        colorgrid256 "$cols" "$bgchar"
+    if [ -n "${_missing-}" ]; then
+        echo "Error: Missing argument for ${_missing}" >&2
+        colorsusage 1
+        # local _err=$?
+        # [ "$_err" -eq 0 ] || return "$_err"
     else
-        colors8_with_brightness $sameline
-        [ "$sameline" != "true" ] || echo
-        colorgrid8_with_brightness "$cols" "$bgchar"
+        if [[ $1 =~ ^[0-9]+$ ]]; then
+            cols="$1"
+            shift
+        else
+            cols="$_cols"
+        fi
+        if $extended; then
+            colors256 $sameline
+            ! $sameline || echo
+            colorgrid256 "$cols" "$bgchar"
+        else
+            colors8_with_brightness $sameline
+            ! $sameline || echo
+            colorgrid8_with_brightness "$cols" "$bgchar"
+        fi
+        [ "$cols" -le "$_cols" ] || echo
     fi
-    [ "$cols" -le 8 ] || echo
 }
 
 if [ "$0" = "${BASH_SOURCE[0]}" ]; then
+    set -e
     colors "$@"
 fi
