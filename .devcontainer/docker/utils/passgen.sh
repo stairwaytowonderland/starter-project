@@ -50,21 +50,21 @@ DEFAULT_PASS_CHARSET="${DEFAULT_PASS_CHARSET:-$DEFAULT_PASS_CHARSET}"
 DEFAULT_MAX_QTY="${DEFAULT_MAX_QTY:-10000}"
 DEFAULT_MIN_CHAR_PER_FAM="${DEFAULT_MIN_CHAR_PER_FAM:-2}"
 
-gnu_compat() {
+_pg_gnu_compat() {
     # Check for GNU coreutils compatibility
     type "$1" > /dev/null 2>&1 && "$1" --version > /dev/null 2>&1 && "$1" --version | grep -iqE "^.*\(gnu coreutils).*$"
 }
 
 # shellcheck disable=SC2015
-_head() { gnu_compat head && head "$@" || { gnu_compat ghead "$@" && ghead "$@"; }; }
+_pg_head() { _pg_gnu_compat head && head "$@" || { _pg_gnu_compat ghead "$@" && ghead "$@"; }; }
 # shellcheck disable=SC2015
-_fold() { gnu_compat fold && fold "$@" || { gnu_compat gfold "$@" && gfold "$@"; }; }
+_pg_fold() { _pg_gnu_compat fold && fold "$@" || { _pg_gnu_compat gfold "$@" && gfold "$@"; }; }
 # shellcheck disable=SC2015
-_shuf() { gnu_compat shuf && shuf || { gnu_compat gshuf && gshuf; }; }
+_pg_shuf() { _pg_gnu_compat shuf && shuf || { _pg_gnu_compat gshuf && gshuf; }; }
 # shellcheck disable=SC2015
-_tr() { gnu_compat tr && tr "$@" || { gnu_compat gtr && gtr "$@"; }; }
+_pg_tr() { _pg_gnu_compat tr && tr "$@" || { _pg_gnu_compat gtr && gtr "$@"; }; }
 
-default_charset() {
+pg_default_charset() {
     full_charset='[:graph:]'
 
     # alpha_charset='[:alnum:]'
@@ -72,15 +72,7 @@ default_charset() {
     echo "${DEFAULT_PASS_CHARSET:-$full_charset}"
 }
 
-remove_ambiguous() {
-    echo "$1" | tr -d 'lijoO0sS5zZ2'
-}
-
-remove_vowels() {
-    echo "$1" | tr -d 'aeiouAEIOU'
-}
-
-printablechars() {
+pg_printablechars() {
     # Print all printable ASCII characters (decimal 32 to 126)
     for i in $(seq 32 126); do
         OCTAL=$(printf '\\%o' "$i")
@@ -89,7 +81,7 @@ printablechars() {
 }
 
 # ! This function causes significant performance degradation; Use only if modifier flags are set.
-normalize_charset() {
+pg_normalize_charset() {
     # Convert character set to tr-compatible format
     charset="$1"
     noambiguous="${noambiguous:-false}"
@@ -100,44 +92,37 @@ normalize_charset() {
         case "$charset" in
             *[:'*':]*)
                 # Assume POSIX character class (e.g., [:graph:])
-                charset="$(printablechars | tr -dc "$charset")"
+                charset="$(pg_printablechars | tr -dc "$charset")"
                 ;;
         esac
 
-        if $noambiguous; then
-            charset="$(remove_ambiguous "$charset")"
-        fi
+        ! $noambiguous || remove='lijoO0sS5zZ2'"$remove"
+        ! $novowels || remove='aeiouAEIOU'"$remove"
 
-        if $novowels; then
-            charset="$(remove_vowels "$charset")"
-        fi
-
-        if [ -n "$remove" ]; then
-            charset="$(echo "$charset" | tr -d "$remove")"
-        fi
+        # shellcheck disable=SC2016
+        [ -z "$remove" ] || charset="$(echo "$charset" | tr -d "$remove" | sed 's/[][\.*^$(){}?+|/]/\\&/g')"
     fi
 
-    # shellcheck disable=SC2016
-    echo "$charset" | sed 's/[][\.*^$(){}?+|/]/\\&/g'
+    echo "$charset"
 }
 
-simple_pass() {
-    charset="$(normalize_charset "${2:-$(default_charset)}")"
-    LC_ALL=C tr -dc "$charset" < /dev/urandom | head -c "${1:-$DEFAULT_PASS_LENGTH}" || usage $?
+pg_simple_pass() {
+    charset="$(pg_normalize_charset "${2:-$(pg_default_charset)}")"
+    LC_ALL=C tr -dc "$charset" < /dev/urandom | head -c "${1:-$DEFAULT_PASS_LENGTH}" || pg_usage $?
 }
 
-requirements_pass() {
+pg_requirements_pass() {
     # Guarantees at least 2 characters from each character family: digits, lowercase, uppercase, special
 
     max_string_len=${1:-$DEFAULT_PASS_LENGTH}
     min_char_per_fam=${2:-$DEFAULT_MIN_CHAR_PER_FAM}
 
-    tr_num=$(normalize_charset '[:digit:]')
-    tr_lower=$(normalize_charset '[:lower:]')
-    tr_upper=$(normalize_charset '[:upper:]')
-    tr_grammar=$(normalize_charset '!~:.,;?-_')
-    tr_symbols=$(normalize_charset '#%^&@\$*+=')
-    tr_brackets=$(normalize_charset '|<>[]\{\}()\/')
+    tr_num=$(pg_normalize_charset '[:digit:]')
+    tr_lower=$(pg_normalize_charset '[:lower:]')
+    tr_upper=$(pg_normalize_charset '[:upper:]')
+    tr_grammar=$(pg_normalize_charset '!~:.,;?-_')
+    tr_symbols=$(pg_normalize_charset '#%^&@\$*+=')
+    tr_brackets=$(pg_normalize_charset '|<>[]\{\}()\/')
 
     set -- "$tr_num" "$tr_lower" "$tr_upper" "$tr_grammar" "$tr_symbols" "$tr_brackets"
     count="$#"
@@ -148,23 +133,23 @@ requirements_pass() {
     [ $remaining_chars -ge 0 ] || remaining_chars=0
 
     (
-        LC_ALL=C tr -dc "${tr_num}"     < /dev/urandom | _head -c "${min_char_per_fam}"
-        LC_ALL=C tr -dc "${tr_lower}"   < /dev/urandom | _head -c "${min_char_per_fam}"
-        LC_ALL=C tr -dc "${tr_upper}"   < /dev/urandom | _head -c "${min_char_per_fam}"
-        LC_ALL=C tr -dc "${tr_grammar}"   < /dev/urandom | _head -c "${min_char_per_fam}"
-        LC_ALL=C tr -dc "${tr_symbols}" < /dev/urandom | _head -c "${min_char_per_fam}"
-        LC_ALL=C tr -dc "${tr_brackets}" < /dev/urandom | _head -c "${min_char_per_fam}"
-        LC_ALL=C tr -dc "${tr_num}${tr_lower}${tr_upper}${tr_grammar}${tr_symbols}${tr_brackets}" < /dev/urandom | _head -c "${remaining_chars}"
-    ) | _fold -w1 | _shuf | _tr -d '\n' || usage $?
+        LC_ALL=C tr -dc "${tr_num}"     < /dev/urandom | _pg_head -c "${min_char_per_fam}"
+        LC_ALL=C tr -dc "${tr_lower}"   < /dev/urandom | _pg_head -c "${min_char_per_fam}"
+        LC_ALL=C tr -dc "${tr_upper}"   < /dev/urandom | _pg_head -c "${min_char_per_fam}"
+        LC_ALL=C tr -dc "${tr_grammar}"   < /dev/urandom | _pg_head -c "${min_char_per_fam}"
+        LC_ALL=C tr -dc "${tr_symbols}" < /dev/urandom | _pg_head -c "${min_char_per_fam}"
+        LC_ALL=C tr -dc "${tr_brackets}" < /dev/urandom | _pg_head -c "${min_char_per_fam}"
+        LC_ALL=C tr -dc "${tr_num}${tr_lower}${tr_upper}${tr_grammar}${tr_symbols}${tr_brackets}" < /dev/urandom | _pg_head -c "${remaining_chars}"
+    ) | _pg_fold -w1 | _pg_shuf | _pg_tr -d '\n' || pg_usage $?
 }
 
-usage() {
+pg_usage() {
     code="${1:-0}"
     C_BOLD=${C_BOLD:-$(printf '\033[1m')}
     C_DEFAULT=${C_DEFAULT:-$(printf '\033[0m')}
     cat << EOT >&2
 ${C_BOLD}USAGE${C_DEFAULT}
-    $PASSGEN [-<n>] [mode] [modifier] [options] [positional_args]
+    $PASSGEN [-<n>] [mode] [modifier] [options] [pg_positional_args]
 
 ${C_BOLD}ARGUMENTS${C_DEFAULT}
     quantity (optional):
@@ -213,15 +198,15 @@ EOT
     exit "$code"
 }
 
-positional_args() {
+pg_positional_args() {
     if echo "$1" | grep -qE "^[0-9]+$"; then
         # Check if there are flag-based options after positional argument
-        [ "$#" -eq 0 ] || echo "$2" | grep -qvE "^-" || usage 1
+        [ "$#" -eq 0 ] || echo "$2" | grep -qvE "^-" || pg_usage 1
         echo "$1"
     fi
 }
 
-parse_args() {
+pg_parse_args() {
     mode='simple' noambiguous=false novowels=false remove=''
     while [ "$#" -gt 0 ]; do
         case "$1" in
@@ -230,7 +215,7 @@ parse_args() {
                 shift
                 ;;
             -h | --help)
-                usage 0
+                pg_usage 0
                 ;;
             -r | --requirements)
                 mode='requirements'
@@ -248,16 +233,16 @@ parse_args() {
                 remove="${remove}${2}"
                 shift 2
                 ;;
-            -*) usage 1 ;;
+            -*) pg_usage 1 ;;
             *) break ;;
         esac
     done
 
     if [ "$mode" = "simple" ]; then
-        positional_length=$(positional_args "$@")
+        positional_length=$(pg_positional_args "$@")
         if [ -n "$positional_length" ]; then
             shift
-            charset="${1:-$(default_charset)}"
+            charset="${1:-$(pg_default_charset)}"
         else
             while [ "$#" -gt 0 ]; do
                 case "$1" in
@@ -271,16 +256,16 @@ parse_args() {
                         ;;
                     -m | --min-char-per-fam)
                         LEVEL='error' $LOGGER "-m|--min-char-per-fam is not valid with -s|--simple mode"
-                        usage 1
+                        pg_usage 1
                         ;;
                     *) break ;;
                 esac
             done
         fi
-        simple_pass "${length:-$positional_length}" "${charset:-$(default_charset)}"
+        pg_simple_pass "${length:-$positional_length}" "${charset:-$(pg_default_charset)}"
         return $?
     elif [ "$mode" = "requirements" ]; then
-        positional_length=$(positional_args "$@")
+        positional_length=$(pg_positional_args "$@")
         if [ -n "$positional_length" ]; then
             shift
             min_char="${1:-$DEFAULT_MIN_CHAR_PER_FAM}"
@@ -297,13 +282,13 @@ parse_args() {
                         ;;
                     -c | --charset)
                         LEVEL='error' $LOGGER "-c|--charset is not valid with -r|--requirements mode"
-                        usage 1
+                        pg_usage 1
                         ;;
                     *) break ;;
                 esac
             done
         fi
-        requirements_pass "${length:-$positional_length}" "${min_char:-$DEFAULT_MIN_CHAR_PER_FAM}"
+        pg_requirements_pass "${length:-$positional_length}" "${min_char:-$DEFAULT_MIN_CHAR_PER_FAM}"
         return $?
     fi
 }
@@ -318,11 +303,11 @@ passgen() {
     if [ "$qty" -gt 0 ] && [ "$qty" -lt "$DEFAULT_MAX_QTY" ]; then
         count=0
         while [ $count -lt "$qty" ]; do
-            printf "%s\n" "$(parse_args "$@")"
+            printf "%s\n" "$(pg_parse_args "$@")"
             count=$((count + 1))
         done
     else
-        parse_args "$@"
+        pg_parse_args "$@"
     fi
 }
 
