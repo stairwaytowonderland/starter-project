@@ -163,16 +163,17 @@
 				// "samuelcolvin.jinjahtml",
 				// "ms-python.black-formatter",
 				// "ms-python.isort",
-				// "ms-python.pylint",
 				// "rodolphebarbanneau.python-docstring-highlighter",
 				// "dbaeumer.vscode-eslint",
 				// ---------------------------------------
+				"charliermarsh.ruff",
 				"cloudbyte.better-byte",
 				"donjayamanne.githistory",
 				"eamodio.gitlens",
 				"editorconfig.editorconfig",
 				"esbenp.prettier-vscode",
 				"mhutchie.git-graph",
+				"mikoz.autoflake-extension",
 				"mkhl.shfmt", // Requires shfmt installation
 				"ms-azuretools.vscode-containers", // Formatting for Dockerfiles
 				"ms-azuretools.vscode-docker",
@@ -319,6 +320,7 @@
 				// 		"source.organizeImports": "explicit"
 				// 	}
 				// },
+				// "ruff.nativeServer": "on",
 				/*
 					Better Byte settings
 					https://marketplace.visualstudio.com/items?itemName=cloudbyte.better-byte

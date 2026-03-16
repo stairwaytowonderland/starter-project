@@ -148,7 +148,7 @@
 		target-version = ['py310', 'py311', 'py312']
 		include = '\.pyi?$'
 	*/
-	// "black-formatter.args": ["--config", "${workspaceFolder}/pyproject.toml"],
+	// "black-formatter.args": ["--config", "${workspaceFolder}/src/pyproject.toml"],
 	// "isort.args": ["--profile", "black"],
 	// "[python]": {
 	// 	"editor.defaultFormatter": "ms-python.black-formatter",
@@ -156,7 +156,8 @@
 	// 	"editor.codeActionsOnSave": {
 	// 		"source.organizeImports": "explicit"
 	// 	}
-	// }
+	// },
+	// "ruff.nativeServer": "on",
 
 	/*
 		Better Byte settings

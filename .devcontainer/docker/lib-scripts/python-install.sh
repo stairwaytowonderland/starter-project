@@ -79,12 +79,12 @@ check_current_version() {
     printf '%s\n' "${__python_version#* }"
 }
 
-updaterc() {
-    case "$(cat /etc/bash.bashrc)" in
-        *"$1"*) ;;
-        *) printf '\n%s\n' "$1" >> /etc/bash.bashrc ;;
-    esac
-}
+# updaterc() {
+#     case "$(cat /etc/bash.bashrc)" in
+#         *"$1"*) ;;
+#         *) printf '\n%s\n' "$1" >> /etc/bash.bashrc ;;
+#     esac
+# }
 
 get_alternatives_priority() {
     { update-alternatives --display "${1}${2-}" 2> /dev/null || echo "priority -1"; } | awk '/priority/ {print $NF}' | sort -n | head -n 1
@@ -180,9 +180,9 @@ INSTALL_PATH="\${INSTALL_PATH:-\${PYTHON_INSTALL_PATH}/\${VERSION}}"
 ALTERNATIVES_PATH="\${ALTERNATIVES_PATH:-/usr/local/bin}"
 
 updaterc() {
-    case "\$(cat /etc/bash.bashrc)" in
+    case "\$(cat "\${2:-/etc/bash.bashrc}")" in
         *"\$1"*) ;;
-        *) printf '\n%s\n' "\$1" >> /etc/bash.bashrc ;;
+        *) printf '\n%s\n' "\$1" >> "\${2:-/etc/bash.bashrc}" ;;
     esac
 }
 
@@ -237,7 +237,7 @@ fi
 for tool in pre-commit poetry uv; do
     if "$PIPX" > /dev/null 2>&1; then
         if [ "\$tool" = "pre-commit" ] && [ "$PRE_COMMIT_ENABLED" = "true" ]; then
-=           $("$PIPX") install "\$tool"
+            $("$PIPX") install "\$tool"
         elif [ "\$tool" != "pre-commit" ]; then
             type "\$tool" > /dev/null 2>&1 || $("$PIPX") install "\$tool"
         fi

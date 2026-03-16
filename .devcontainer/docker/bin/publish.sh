@@ -35,7 +35,7 @@ DEFAULT_PLATFORM="linux/$(uname -m)"
 FILEZ_TARGET="${FILEZ_TARGET:-filez}"
 
 REGISTRY_PROVIDER="${REGISTRY_PROVIDER:-GitHub}"
-REGISTER_PROVIDER_FQDN="${REGISTER_PROVIDER_FQDN:-github.com}"
+REGISTRY_PROVIDER_FQDN="${REGISTRY_PROVIDER_FQDN:-github.com}"
 REPO_NAMESPACE="${REPO_NAMESPACE-}"
 REPO_NAME="${REPO_NAME-}"
 
@@ -143,7 +143,7 @@ tag_image "$build_tag" "$REGISTRY_URL"
 
 base_image_name_cap="$(capitalize "$BASE_IMAGE_NAME")"
 image_title="${title_prefix}${title_suffix-}"
-repo_source="https://${REGISTER_PROVIDER_FQDN}/${REPO_NAMESPACE}/${REPO_NAME}"
+repo_source="https://${REGISTRY_PROVIDER_FQDN}/${REPO_NAMESPACE}/${REPO_NAME}"
 revision="$(git -C "${script_dir}/../../.." rev-parse HEAD)"
 description_url="${repo_source}/blob/main/.devcontainer/docker"
 description_image="Built from \`${BASE_IMAGE_NAME}:${BASE_IMAGE_VARIANT}\`."
@@ -157,7 +157,7 @@ image_description=$(
     {
         cat <<- EOF
 ${description_prefix:-This}
-Docker image is part of the **${REPO_NAME}** collection of development container images.
+Docker image is part of the **${REPO_NAME}** collection of container images.
 ${description_image}
 ${description_arch}
 ${description_docs}

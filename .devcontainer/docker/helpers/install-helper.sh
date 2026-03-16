@@ -56,6 +56,7 @@ __get_arch() {
 get_major_version() { echo "$1" | cut -d. -f1; }
 get_minor_version() { echo "$1" | cut -d. -f2; }
 get_patch_version() { echo "$1" | cut -d. -f3; }
+get_major_minor_version() { echo "$1" | cut -d. -f1,2; }
 
 ensure_root() {
     if [ "$(id -u)" -ne 0 ]; then
@@ -91,6 +92,13 @@ remove_packages() {
         LEVEL='ƒ' $LOGGER "Autoremoving packages..."
         apt-get -y autoremove
     fi
+}
+
+updaterc() {
+    case "$(cat "${2:-/etc/bash.bashrc}")" in
+        *"$1"*) ;;
+        *) printf '\n%s\n' "$1" >> "${2:-/etc/bash.bashrc}" ;;
+    esac
 }
 
 # Usage example for defining packages to install:

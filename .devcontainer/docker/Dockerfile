@@ -656,6 +656,11 @@ RUN apt-get update \
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/*
 
+# RUN groupadd --gid "$USER_GID" "$USERNAME" \
+#   && useradd --uid "$USER_UID" --gid "$USER_GID" -m "$USERNAME" -s /bin/bash \
+#  # && echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/$USERNAME" \
+#  # && chmod 0440 "/etc/sudoers.d/$USERNAME"
+
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # USER ubuntu
