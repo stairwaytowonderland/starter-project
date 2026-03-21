@@ -60,6 +60,9 @@ BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-ubuntu}"
 BASE_IMAGE_VARIANT="${BASE_IMAGE_VARIANT:-latest}"
 DEFAULT_PLATFORM="linux/$(uname -m)"
 FILEZ_TARGET="${FILEZ_TARGET:-filez}"
+[ "$BASE_IMAGE_VARIANT" = "latest" ] \
+    && BASE_IMAGE_REF="$BASE_IMAGE_NAME" \
+    || BASE_IMAGE_REF="${BASE_IMAGE_VARIANT}"
 
 # Determine Docker context
 if [ -d "$last_arg" ]; then
@@ -90,7 +93,9 @@ if [ "$DOCKER_TARGET" = "$FILEZ_TARGET" ]; then
 else
     tag_prefix="${IMAGE_NAME}:${DOCKER_TARGET}"
     # Append base image name if variant is 'latest'
-    [ "$BASE_IMAGE_VARIANT" != "latest" ] || tag_prefix="${tag_prefix}-${BASE_IMAGE_NAME}"
+    if [ "$BASE_IMAGE_VARIANT" = "latest" ]; then
+        tag_prefix="${tag_prefix}-${BASE_IMAGE_REF}"
+    fi
 
     build_tag="${tag_prefix}-${BASE_IMAGE_VARIANT}"
 fi
@@ -115,6 +120,7 @@ com+=("--platform=$(dedupe "${PLATFORM:-$DEFAULT_PLATFORM}")")
 com_arg=()
 com_arg+=("--build-arg" "IMAGE_NAME=${BASE_IMAGE_NAME}")
 com_arg+=("--build-arg" "VARIANT=${BASE_IMAGE_VARIANT}")
+com_arg+=("--build-arg" "BASE_IMAGE_REF=${BASE_IMAGE_REF}")
 if [ -n "$REMOTE_USER" ]; then
     com_arg+=("--build-arg" "USERNAME=${REMOTE_USER}")
 fi

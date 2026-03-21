@@ -2,7 +2,9 @@
 ARG IMAGE_NAME=ubuntu
 ARG VARIANT=${VARIANT:-latest}
 ARG BASE_IMAGE=${IMAGE_NAME}:${VARIANT}
+ARG BASE_IMAGE_REF=${IMAGE_NAME}-${VARIANT}
 ARG DEV_PARENT_IMAGE=devuser
+ARG PYTHON_VERSION=3.12
 
 # --------------------------------------------------------------
 # Generator stages for core utility scripts
@@ -47,6 +49,7 @@ FROM $BASE_IMAGE AS builder
 ARG BASE_IMAGE \
     IMAGE_NAME \
     VARIANT \
+    BASE_IMAGE_REF \
     DEV_PARENT_IMAGE
 
 ARG LOGGER=/usr/local/bin/logger.sh \
@@ -188,27 +191,12 @@ RUN /tmp/lib-scripts/node-install.sh \
 CMD ["/bin/bash"]
 
 
-FROM builder AS pybuilder
-
-ARG PYTHON_VERSION=none
-ARG PYTHON_INSTALL_PATH=/usr/local/python
-ARG PACKAGE_CLEANUP=false
-
-# Copy library scripts
-COPY --chmod=755 .devcontainer/docker/lib-scripts/python-install.sh /tmp/lib-scripts/
+# FROM builder AS pybuilder
+FROM ghcr.io/stairwaytowonderland/cpython:${PYTHON_VERSION}-${BASE_IMAGE_REF} AS pybase
 
 USER root
 
-RUN mkdir -p $PYTHON_INSTALL_PATH \
-  && if [ "$PYTHON_VERSION" != "system" ] \
-    && [ "$PYTHON_VERSION" != "none" ] \
-    && [ "$PYTHON_VERSION" != "devcontainer" ]; then \
-      /tmp/lib-scripts/python-install.sh; \
-  fi \
-  # Cleanup build dependencies but keep the Python installation
-  && apt-get clean -y \
-  && rm -rf /var/lib/apt/lists/* \
-  && rm -rf /tmp/*
+RUN rm -f $LOGGER
 
 CMD ["/bin/bash"]
 
@@ -231,8 +219,7 @@ ARG USER_UID=1000 \
     # ('latest' to install latest from source, 'system' to use system Git, or specify version like '2.34.1', '2.35.0', etc.)
     GIT_VERSION=latest \
     # Set default Python version
-    # ('system' to use system Python, 'latest' to use latest Homebrew Python, or specify version like '3.9', '3.10', etc.)
-    PYTHON_VERSION=none \
+    PYTHON_VERSION \
     # Development mode flag
     DEV=false \
     # Whether to set default root password to 'docker' at build time
@@ -248,6 +235,9 @@ ARG USER_UID=1000 \
 ENV PATH="/home/$USERNAME/.local/bin:$PATH" \
     # Export PYTHON_VERSION for convenience
     PYTHON_VERSION=$PYTHON_VERSION
+    # Export HOMEBREW_REPOSITORY so brew can always locate Library/Homebrew/brew.sh
+    # without relying on .git detection (which can fail after first-run migration).
+    # HOMEBREW_REPOSITORY=/home/linuxbrew/.linuxbrew/Homebrew
 
 COPY --chmod=755 .devcontainer/docker/utils/fixpath.sh $FIXPATH
 
@@ -382,7 +372,9 @@ FROM base AS devtools
 COPY --chmod=755 .devcontainer/docker/lib-scripts/devtools-*.sh /tmp/lib-scripts/
 
 ARG NODEPATH=/home/$USERNAME/.local/lib/node/nodejs \
-    PYTHON_INSTALL_PATH=/usr/local/python
+    PYTHON_INSTALL_PATH=/usr/local/lib \
+    PIP_INSTALL=/usr/local/bin/pip-install.sh \
+    PYTHON_TOOLS='poetry uv pre-commit'
 
 ENV NODEJS_HOME=/home/$USERNAME/.local/lib/nodejs
 ENV PATH="$NODEJS_HOME/bin:$PATH"
@@ -391,10 +383,9 @@ ENV PATH="$NODEJS_HOME/bin:$PATH"
 COPY --from=nodebuilder --chown=$USERNAME:$USERNAME /usr/local/lib/node/nodejs $NODEPATH
 COPY --from=nodebuilder --chmod=755 /tmp/node-* /tmp/
 
-# Copy Python installation from pybuilder
-COPY --from=pybuilder $PYTHON_INSTALL_PATH $PYTHON_INSTALL_PATH
-# Copy Python installation scripts as fallback
-COPY --chmod=755 .devcontainer/docker/lib-scripts/python-install.sh /tmp/lib-scripts/
+# Copy Python installation from pybase
+COPY --from=pybase /usr/local/bin /usr/local/bin/
+COPY --from=pybase $PYTHON_INSTALL_PATH $PYTHON_INSTALL_PATH
 
 USER root
 
@@ -404,28 +395,26 @@ RUN /tmp/lib-scripts/devtools-utils.sh \
     sed -i "2s|^|\nNODEPATH=$NODEPATH\n\n|" /tmp/node-install \
       && /tmp/node-install; \
   fi \
-  && if [ -n "$(ls "$PYTHON_INSTALL_PATH")" ] && [ -n "$(ls "$PYTHON_INSTALL_PATH"/python-*)" ]; then \
-    sed -i "2s|^|\nPYTHON_INSTALL_PATH=$PYTHON_INSTALL_PATH\n\n|" "$PYTHON_INSTALL_PATH"/python-* \
-    && for f in "$PYTHON_INSTALL_PATH"/python-*-config; do \
-      if [ -x "$f" ]; then \
-        "$f"; \
-      fi; \
-    done \
-    # Remove system pre-commit to avoid conflicts with pipx installation
-    && if [ "$PRE_COMMIT_ENABLED" = "true" ] && type pre-commit >/dev/null 2>&1; then \
-      apt-get -y remove pre-commit || true; \
-    fi \
-  else \
-    if [ "$PYTHON_VERSION" = "system" ]; then \
-      # If Python installation is not copied from builder stage, run the installation script in this stage
-      /tmp/lib-scripts/python-install.sh; \
-    fi; \
+  && if [ "$PRE_COMMIT_ENABLED" = "true" ] && type pre-commit >/dev/null 2>&1; then \
+    apt-get -y remove pre-commit || true; \
   fi \
+  && "$PYTHON_INSTALL_PATH/python-setup" \
   # Cleanup
   && apt-get -y autoremove \
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/* \
-  && rm -rf /tmp/*
+  && rm -rf /tmp/* \
+  # Install default Python tools if not already installed (e.g. via Homebrew)
+  && "$PIPX" >/dev/null 2>&1 || "$PIP_INSTALL" pipx \
+  && mkdir -p /opt/venv \
+  && chown $USERNAME:$USERNAME /opt/venv \
+  && if type "$BREW" > /dev/null 2>&1 ; then \
+    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /etc/bash.bashrc; \
+  fi \
+  && cat <<'EOF' >> /etc/bash.bashrc
+VIRTUAL_ENV_ENABLED="${VIRTUAL_ENV_ENABLED:-false}"
+[ "${VENV_ACTIVATE:-${VENV_ACTIVATE:-$VIRTUAL_ENV_ENABLED}}" != "true" ] || . /opt/venv/bin/activate
+EOF
 
 # Switch to non-root user
 USER $USERNAME
@@ -435,28 +424,12 @@ USER $USERNAME
 # USERNAME cannot be 'system' or 'latest'.
 
 ARG NO_BREW_UPDATE=$DEV
-RUN if [ -f "$PYTHON_INSTALL_PATH"/python-*-tools ]; then \
-    for f in "$PYTHON_INSTALL_PATH"/python-*-tools; do \
-      if [ -x "$f" ]; then \
-        "$f"; \
-      fi; \
-    done; \
-  elif type "$BREW" > /dev/null 2>&1 ; then \
-    test "$NO_BREW_UPDATE" = "true" || "$BREW" update \
-    && if [ "$PYTHON_VERSION" = "latest" ]; then \
-      "$BREW" install python3; \
-    elif [ "$PYTHON_VERSION" != "devcontainer" ] && [ "$PYTHON_VERSION" != "system" ] \
-      && [ "$PYTHON_VERSION" != "$USERNAME" ] \
-      && python3 --version | grep -q "Python ${PYTHON_VERSION%%.*}" ; then \
-      "$BREW" install "python@${PYTHON_VERSION}"; \
-    fi \
-    && if [ "$PYTHON_VERSION" != "system" ] ; then \
-      "$BREW" install pipx; \
-    fi; \
+RUN if type "$BREW" > /dev/null 2>&1 ; then \
+    test "$NO_BREW_UPDATE" = "true" || "$BREW" update; \
   fi \
   && if "$PIPX" 2>/dev/null; then \
-    for tool in pre-commit poetry uv; do \
-      if "$PIPX" >/dev/null 2>&1; then \
+    for tool in $PYTHON_TOOLS; do \
+      if ! type "$tool" >/dev/null 2>&1 && "$PIPX" >/dev/null 2>&1; then \
         if [ "$tool" = "pre-commit" ] && [ "$PRE_COMMIT_ENABLED" = "true" ]; then \
           $("$PIPX") install "$tool"; \
         elif [ "$tool" != "pre-commit" ]; then \
@@ -476,6 +449,8 @@ then
   printf "\033[1m%s\033[0m\n" "Updating root password ..."
   sudo passwd root
 fi
+
+python3 -m venv /opt/venv
 
 exec "\$@"
 EOF

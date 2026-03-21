@@ -221,3 +221,4 @@ test.sh
 *.tmp
 *.private
 /.last
+/.command
