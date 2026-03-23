@@ -15,16 +15,10 @@ PACKAGES_TO_INSTALL="${PACKAGES_TO_INSTALL% } $(
     cat << EOF
 ca-certificates
 gnupg2
-curl
-vim
-nano
-less
-procps
 lsb-release
+procps
 tzdata
-python3
-jq
-yq
+wget
 EOF
 )"
 

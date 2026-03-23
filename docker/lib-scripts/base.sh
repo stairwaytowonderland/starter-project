@@ -30,7 +30,8 @@ update_and_install "${PACKAGES_TO_INSTALL# }"
 
 if [ "${UNIMATRIX_ENABLED:-true}" = "true" ]; then
     LEVEL='*' $LOGGER "Installing unimatrix..."
-    curl -fsSL https://raw.githubusercontent.com/will8211/unimatrix/master/unimatrix.py -o /tmp/unimatrix.py \
+    # curl -fsSL https://raw.githubusercontent.com/will8211/unimatrix/master/unimatrix.py -o /tmp/unimatrix.py \
+    wget -qO /tmp/unimatrix.py https://raw.githubusercontent.com/will8211/unimatrix/master/unimatrix.py \
         && install /tmp/unimatrix.py /usr/local/bin/unimatrix
 fi
 
@@ -159,7 +160,6 @@ then
             aliases >&2
         fi
     fi
-    printf "👋 Welcome to your development container...\n" >&2
 fi
 EOF
 

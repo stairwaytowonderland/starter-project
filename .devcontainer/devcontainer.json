@@ -8,7 +8,7 @@
 	// "image": "ghcr.io/stairwaytowonderland/starter-project:cloudtools-ubuntu-latest",
 	// "image": "ghcr.io/stairwaytowonderland/starter-project:cloudtools-bookworm-slim",
 	// "build": {
-	// 	"dockerfile": "./docker/Dockerfile",
+	// 	"dockerfile": "../docker/Dockerfile",
 	// 	"target": "<docker-build-target>", // e.g., "base", "devtools", "cloudtools"
 	// 	"context": "..",
 	// 	"args": {

@@ -2,9 +2,9 @@
 ARG IMAGE_NAME=ubuntu
 ARG VARIANT=${VARIANT:-latest}
 ARG BASE_IMAGE=${IMAGE_NAME}:${VARIANT}
-ARG BASE_IMAGE_REF=${IMAGE_NAME}-${VARIANT}
 ARG DEV_PARENT_IMAGE=devuser
 ARG PYTHON_VERSION=3.12
+ARG PYTHON_IMAGE_REF=${PYTHON_VERSION}-${IMAGE_NAME}-${VARIANT}
 
 # --------------------------------------------------------------
 # Generator stages for core utility scripts
@@ -16,8 +16,8 @@ ARG LOGGER=/usr/local/bin/logger.sh \
     DEFAULT_PASS_CHARSET='[:graph:]' \
     DEFAULT_PASS_LENGTH=32
 
-COPY --chmod=755 .devcontainer/docker/utils/logger.sh $LOGGER
-COPY --chmod=755 .devcontainer/docker/utils/passgen.sh $PASSGEN
+COPY --chmod=755 docker/utils/logger.sh $LOGGER
+COPY --chmod=755 docker/utils/passgen.sh $PASSGEN
 
 RUN sed -i "s|\$PASSGEN|$PASSGEN|g" $PASSGEN \
   && sed -i "s|\$DEFAULT_PASS_LENGTH|$DEFAULT_PASS_LENGTH|g" $PASSGEN \
@@ -34,7 +34,7 @@ ARG LOGGER=/usr/local/bin/logger.sh \
 COPY --from=utils $LOGGER $LOGGER
 COPY --from=utils $PASSGEN $PASSGEN
 
-COPY .devcontainer/docker/helpers/*.sh /helpers/
+COPY docker/helpers/*.sh /helpers/
 
 # --------------------------------------------------------------
 
@@ -49,7 +49,7 @@ FROM $BASE_IMAGE AS builder
 ARG BASE_IMAGE \
     IMAGE_NAME \
     VARIANT \
-    BASE_IMAGE_REF \
+    PYTHON_IMAGE_REF \
     DEV_PARENT_IMAGE
 
 ARG LOGGER=/usr/local/bin/logger.sh \
@@ -65,7 +65,7 @@ ENV LOGGER=$LOGGER \
     DEBIAN_FRONTEND=noninteractive
 
 # Copy library scripts
-COPY --chmod=755 .devcontainer/docker/lib-scripts/builder-*.sh /tmp/lib-scripts/
+COPY --chmod=755 docker/lib-scripts/builder-*.sh /tmp/lib-scripts/
 # Copy logger script
 COPY --from=filez $LOGGER $LOGGER
 # Copy helper scripts
@@ -125,12 +125,12 @@ ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
 # Copy library scripts
-COPY --chmod=755 .devcontainer/docker/lib-scripts/git-install.sh /tmp/lib-scripts/
+COPY --chmod=755 docker/lib-scripts/git-install.sh /tmp/lib-scripts/
 
 USER root
 
 RUN apt-get update \
-  && apt-get -y install --no-install-recommends sudo \
+  && apt-get -y install --no-install-recommends curl sudo \
   && groupadd --gid "$USER_GID" "$USERNAME" \
   && useradd --uid "$USER_UID" --gid "$USER_GID" -m "$USERNAME" -s /bin/bash \
   && echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/$USERNAME" \
@@ -143,6 +143,8 @@ RUN apt-get update \
 USER $USERNAME
 
 RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# RUN echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/$USERNAME/.bashrc \
+#   && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
 CMD ["/bin/bash"]
 
@@ -154,7 +156,7 @@ ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
 # Copy library scripts
-COPY --chmod=755 .devcontainer/docker/lib-scripts/go-install.sh /tmp/lib-scripts/
+COPY --chmod=755 docker/lib-scripts/go-install.sh /tmp/lib-scripts/
 
 USER root
 
@@ -179,7 +181,7 @@ ENV NODEJS_HOME=/usr/local/lib/nodejs
 ENV PATH="$NODEJS_HOME/bin:$PATH"
 
 # Copy library scripts
-COPY --chmod=755 .devcontainer/docker/lib-scripts/node-install.sh /tmp/lib-scripts/
+COPY --chmod=755 docker/lib-scripts/node-install.sh /tmp/lib-scripts/
 
 USER root
 
@@ -192,7 +194,7 @@ CMD ["/bin/bash"]
 
 
 # FROM builder AS pybuilder
-FROM ghcr.io/stairwaytowonderland/cpython:${PYTHON_VERSION}-${BASE_IMAGE_REF} AS pybase
+FROM stairwaytowonderland/cpython:${PYTHON_IMAGE_REF} AS pybase
 
 USER root
 
@@ -212,7 +214,6 @@ FROM builder AS devbuilder
 ARG USER_UID=1000 \
     USER_GID=$USER_UID \
     USERNAME=devcontainer \
-    FIXPATH=/usr/local/bin/fixpath.sh \
     # Default path to Homebrew binary (for convenience; not likely to change)
     BREW=/home/linuxbrew/.linuxbrew/bin/brew \
     # Set default Git version to install
@@ -220,6 +221,7 @@ ARG USER_UID=1000 \
     GIT_VERSION=latest \
     # Set default Python version
     PYTHON_VERSION \
+    VIRTUAL_ENV_DIR="/opt/venv" \
     # Development mode flag
     DEV=false \
     # Whether to set default root password to 'docker' at build time
@@ -232,24 +234,24 @@ ARG USER_UID=1000 \
     UNIMATRIX_ENABLED=true
 
 # Update PATH here so that all shells contain the updated PATH
-ENV PATH="/home/$USERNAME/.local/bin:$PATH" \
+ENV WELCOME_MESSAGE="👋 Happy coding!"
+    # PATH="/home/$USERNAME/.local/bin:$PATH"
     # Export PYTHON_VERSION for convenience
-    PYTHON_VERSION=$PYTHON_VERSION
+    # PYTHON_VERSION=$PYTHON_VERSION
     # Export HOMEBREW_REPOSITORY so brew can always locate Library/Homebrew/brew.sh
     # without relying on .git detection (which can fail after first-run migration).
     # HOMEBREW_REPOSITORY=/home/linuxbrew/.linuxbrew/Homebrew
 
-COPY --chmod=755 .devcontainer/docker/utils/fixpath.sh $FIXPATH
-
 # Copy library scripts
-COPY --chmod=755 .devcontainer/docker/lib-scripts/devbuilder*.sh \
-    .devcontainer/docker/lib-scripts/git-install.sh \
+COPY --chmod=755 docker/lib-scripts/devbuilder*.sh \
+    docker/lib-scripts/git-install.sh \
     /tmp/lib-scripts/
 
-RUN sed -i "s|\$FIXPATH|$FIXPATH|g" $FIXPATH \
-  && /tmp/lib-scripts/devbuilder-utils.sh \
+RUN /tmp/lib-scripts/devbuilder-utils.sh \
   && /tmp/lib-scripts/git-install.sh \
   && /tmp/lib-scripts/devbuilder-user-setup.sh \
+  && mkdir -p "$VIRTUAL_ENV_DIR" \
+  && chown "$USERNAME:$USERNAME" "$VIRTUAL_ENV_DIR" \
   # Cleanup
   && apt-get clean -y \
   && apt-get -y autoremove \
@@ -291,25 +293,25 @@ CMD ["sh", "-c", "exec $BREW"]
 FROM $DEV_PARENT_IMAGE AS base
 
 # Copy library scripts
-COPY --chmod=755 .devcontainer/docker/lib-scripts/base*.sh /tmp/lib-scripts/
+COPY --chmod=755 docker/lib-scripts/base*.sh /tmp/lib-scripts/
 
 # Copy post-start script
-COPY --chmod=755 .devcontainer/docker/scripts/post-start.sh /usr/local/bin/post-start
+COPY --chmod=755 docker/scripts/post-start.sh /usr/local/bin/post-start
 
 # Copy shfmt installation from gobuilder stage
 COPY --from=gobuilder /usr/local/bin/shfmt /usr/local/bin/shfmt
 
 # Path to pipx binary locator script
 ARG PIPX=/usr/local/bin/pipxpath.sh
-COPY --chmod=755 .devcontainer/docker/utils/pipxpath.sh $PIPX
+COPY --chmod=755 docker/utils/pipxpath.sh $PIPX
 
 USER root
 
 ARG PRE_COMMIT_ENABLED=false
 
 RUN sed -i "s|\$LOGGER|$LOGGER|g" /usr/local/bin/post-start \
-  && sed -i "s|\$PIPX|$PIPX|g" $PIPX \
-  && sed -i "s|\$BREW|$BREW|g" $PIPX \
+  # Replace $PIPX and $BREW variables in $PIPX script with their actual values
+  && sed -i "s|\$PIPX|$PIPX|g" $PIPX && sed -i "s|\$BREW|$BREW|g" $PIPX \
   && /tmp/lib-scripts/base.sh \
   # Cleanup
   && apt-get clean -y \
@@ -344,12 +346,12 @@ RUN if ! type pre-commit >/dev/null 2>&1 && [ "$PRE_COMMIT_ENABLED" = "true" ]; 
   fi \
   && $PASSGEN -s 16 '[:alpha:]' > /.healthcheck
 
-COPY --chmod=755 .devcontainer/docker/utils/healthcheck.sh /usr/local/bin/healthcheck.sh
+COPY --chmod=755 docker/utils/healthcheck.sh /usr/local/bin/healthcheck.sh
 
-COPY .devcontainer/docker/etc/profile.d/*.sh /etc/profile.d/
+COPY docker/etc/profile.d/*.sh /etc/profile.d/
 
 ARG CUSTOM_NANORC=/etc/nanorc
-COPY .devcontainer/docker/etc/nanorc $CUSTOM_NANORC
+COPY docker/etc/nanorc $CUSTOM_NANORC
 
 # docker inspect --format='{{json .State.Health}}' <container_id> | jq
 HEALTHCHECK --interval=5s --timeout=3s --start-period=1s --retries=3 \
@@ -369,7 +371,7 @@ CMD ["healthcheck.sh"]
 FROM base AS devtools
 
 # Copy library scripts
-COPY --chmod=755 .devcontainer/docker/lib-scripts/devtools-*.sh /tmp/lib-scripts/
+COPY --chmod=755 docker/lib-scripts/devtools-*.sh /tmp/lib-scripts/
 
 ARG NODEPATH=/home/$USERNAME/.local/lib/node/nodejs \
     PYTHON_INSTALL_PATH=/usr/local/lib \
@@ -395,7 +397,8 @@ RUN /tmp/lib-scripts/devtools-utils.sh \
     sed -i "2s|^|\nNODEPATH=$NODEPATH\n\n|" /tmp/node-install \
       && /tmp/node-install; \
   fi \
-  && if [ "$PRE_COMMIT_ENABLED" = "true" ] && type pre-commit >/dev/null 2>&1; then \
+  # Check if pre-commit is in PYTHON_TOOLS
+  && if echo "$PYTHON_TOOLS" | grep -qw pre-commit && type pre-commit >/dev/null 2>&1; then \
     apt-get -y remove pre-commit || true; \
   fi \
   && "$PYTHON_INSTALL_PATH/python-setup" \
@@ -406,38 +409,24 @@ RUN /tmp/lib-scripts/devtools-utils.sh \
   && rm -rf /tmp/* \
   # Install default Python tools if not already installed (e.g. via Homebrew)
   && "$PIPX" >/dev/null 2>&1 || "$PIP_INSTALL" pipx \
-  && mkdir -p /opt/venv \
-  && chown $USERNAME:$USERNAME /opt/venv \
-  && if type "$BREW" > /dev/null 2>&1 ; then \
-    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /etc/bash.bashrc; \
-  fi \
-  && cat <<'EOF' >> /etc/bash.bashrc
-VIRTUAL_ENV_ENABLED="${VIRTUAL_ENV_ENABLED:-false}"
-[ "${VENV_ACTIVATE:-${VENV_ACTIVATE:-$VIRTUAL_ENV_ENABLED}}" != "true" ] || . /opt/venv/bin/activate
-EOF
+  && $LOGGER "Installing Python dev tools: $PYTHON_TOOLS..." \
+  && for tool in $PYTHON_TOOLS; do \
+    if [ "$tool" = "pre-commit" ] && type "$tool" >/dev/null 2>&1; then \
+      apt-get -y remove pre-commit || true \
+        && $PIP_INSTALL "$tool"; \
+    elif [ "$tool" != "pre-commit" ]; then \
+      type "$tool" >/dev/null 2>&1 || $PIP_INSTALL "$tool"; \
+    fi; \
+  done
 
 # Switch to non-root user
 USER $USERNAME
-
-# Install Python, pipx, Poetry, uv, and other dev tools.
-# Do nothing if PYTHON_VERSION is 'devcontainer' or matches the USERNAME.
-# USERNAME cannot be 'system' or 'latest'.
 
 ARG NO_BREW_UPDATE=$DEV
 RUN if type "$BREW" > /dev/null 2>&1 ; then \
     test "$NO_BREW_UPDATE" = "true" || "$BREW" update; \
   fi \
-  && if "$PIPX" 2>/dev/null; then \
-    for tool in $PYTHON_TOOLS; do \
-      if ! type "$tool" >/dev/null 2>&1 && "$PIPX" >/dev/null 2>&1; then \
-        if [ "$tool" = "pre-commit" ] && [ "$PRE_COMMIT_ENABLED" = "true" ]; then \
-          $("$PIPX") install "$tool"; \
-        elif [ "$tool" != "pre-commit" ]; then \
-          type "$tool" >/dev/null 2>&1 || $("$PIPX") install "$tool"; \
-        fi; \
-      fi; \
-    done; \
-  fi
+  && python3 -m venv --prompt "$VIRTUAL_ENV_DIR" "$VIRTUAL_ENV_DIR"
 
 COPY --chmod=755 <<EOF /usr/local/bin/docker-entrypoint.sh
 #!/bin/sh
@@ -449,8 +438,6 @@ then
   printf "\033[1m%s\033[0m\n" "Updating root password ..."
   sudo passwd root
 fi
-
-python3 -m venv /opt/venv
 
 exec "\$@"
 EOF
@@ -469,7 +456,7 @@ FROM base AS cloudtools
 # ? https://github.com/awslabs/aws-terraform-dev-container/blob/main/.devcontainer/library-scripts/terraform-tools.sh
 
 # Copy library scripts
-COPY --chmod=755 .devcontainer/docker/lib-scripts/cloud*tools.sh /tmp/lib-scripts/
+COPY --chmod=755 docker/lib-scripts/cloud*tools.sh /tmp/lib-scripts/
 
 USER root
 
@@ -491,10 +478,10 @@ RUN if $PIPX 2>/dev/null; then \
 FROM base AS codeserver-minimal
 
 # Copy library scripts
-COPY --chmod=755 .devcontainer/docker/lib-scripts/codeserver-utils.sh /tmp/lib-scripts/
+COPY --chmod=755 docker/lib-scripts/codeserver-utils.sh /tmp/lib-scripts/
 
 # Copy start-code-server script
-COPY --chmod=755 .devcontainer/docker/scripts/start-code-server.sh /usr/local/bin/start-code-server
+COPY --chmod=755 docker/scripts/start-code-server.sh /usr/local/bin/start-code-server
 
 USER root
 
@@ -523,7 +510,7 @@ ENV BIND_ADDR=$BIND_ADDR \
 # If standalone download is false, use root to install the .deb package
 # If standalone download is true use $USERNAME to install the tar.gz package
 USER $USERNAME
-COPY --chmod=755 --chown=$USERNAME:$USERNAME .devcontainer/docker/lib-scripts/codeserver-install.sh \
+COPY --chmod=755 --chown=$USERNAME:$USERNAME docker/lib-scripts/codeserver-install.sh \
     /tmp/lib-scripts/
 
 RUN $LOGGER "Installing code-server..." \
@@ -539,8 +526,12 @@ EXPOSE "${BIND_ADDR##*:}"
 
 # Health check
 # dockerfile-utils: ignore
+# HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+#   CMD curl -fsSL "http://localhost:"${BIND_ADDR##*:}"/healthz" || exit 1
+
+# dockerfile-utils: ignore
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -fsSL "http://localhost:"${BIND_ADDR##*:}"/healthz" || exit 1
+  CMD wget -qO- "http://localhost:"${BIND_ADDR##*:}"/healthz" || exit 1
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
@@ -558,10 +549,10 @@ CMD ["/bin/sh", "-c", "start-code-server --config-only && set -x ; \
 FROM devtools AS codeserver
 
 # Copy library scripts
-COPY --chmod=755 .devcontainer/docker/lib-scripts/codeserver-utils.sh /tmp/lib-scripts/
+COPY --chmod=755 docker/lib-scripts/codeserver-utils.sh /tmp/lib-scripts/
 
 # Copy start-code-server script
-COPY --chmod=755 .devcontainer/docker/scripts/start-code-server.sh /usr/local/bin/start-code-server
+COPY --chmod=755 docker/scripts/start-code-server.sh /usr/local/bin/start-code-server
 
 USER root
 
@@ -592,7 +583,7 @@ ENV BIND_ADDR=$BIND_ADDR \
 # If standalone download is false, use root to install the .deb package
 # If standalone download is true use $USERNAME to install the tar.gz package
 USER $USERNAME
-COPY --chmod=755 --chown=$USERNAME:$USERNAME .devcontainer/docker/lib-scripts/codeserver-install.sh \
+COPY --chmod=755 --chown=$USERNAME:$USERNAME docker/lib-scripts/codeserver-install.sh \
     /tmp/lib-scripts/
 
 RUN $LOGGER "Installing code-server..." \
@@ -608,8 +599,12 @@ EXPOSE "${BIND_ADDR##*:}"
 
 # Health check
 # dockerfile-utils: ignore
+# HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+#   CMD curl -fsSL "http://localhost:"${BIND_ADDR##*:}"/healthz" || exit 1
+
+# dockerfile-utils: ignore
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -fsSL "http://localhost:"${BIND_ADDR##*:}"/healthz" || exit 1
+  CMD wget -qO- "http://localhost:"${BIND_ADDR##*:}"/healthz" || exit 1
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 

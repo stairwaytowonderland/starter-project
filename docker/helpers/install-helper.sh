@@ -58,6 +58,19 @@ get_minor_version() { echo "$1" | cut -d. -f2; }
 get_patch_version() { echo "$1" | cut -d. -f3; }
 get_major_minor_version() { echo "$1" | cut -d. -f1,2; }
 
+updaterc() {
+    newline="${2-}"
+    if [ "$newline" = "true" ]; then newline="\n"; else unset newline; fi
+    case "$(cat "${3:-/etc/bash.bashrc}")" in
+        *"$1"*) ;;
+        *) printf '%b%s\n' "$newline" "$1" >> "${3:-/etc/bash.bashrc}" ;;
+    esac
+}
+
+get_alternatives_priority() {
+    { update-alternatives --display "${1}${2-}" 2> /dev/null || echo "priority -1"; } | awk '/priority/ {print $NF}' | sort -n | head -n 1
+}
+
 ensure_root() {
     if [ "$(id -u)" -ne 0 ]; then
         LEVEL='error' $LOGGER '(!)' "This script must be run as root. Current user ID: $(id -u)"
@@ -67,7 +80,7 @@ ensure_root() {
 
 install_packages() {
     # shellcheck disable=SC2086
-    LEVEL='ƒ' $LOGGER "Installing the following packages: "$*
+    LEVEL='*' $LOGGER "Installing the following packages: "$*
     # shellcheck disable=SC2086,SC2048
     apt-get -y install --no-install-recommends $*
 }
@@ -77,28 +90,11 @@ update_and_install() {
     install_packages "$@"
 }
 
+# shellcheck disable=SC2086
 remove_packages() {
-    PACKAGE_CLEANUP="${PACKAGE_CLEANUP:-true}"
-    REMOVE_ONLY="${REMOVE_ONLY:-false}"
-    if [ "$PACKAGE_CLEANUP" != "true" ] && [ "$REMOVE_ONLY" != "true" ]; then
-        LEVEL='warn' $LOGGER "Cleanup is disabled. Skipping package removal: ""$*"
-        return
-    fi
-    # shellcheck disable=SC2086
-    LEVEL='ƒ' $LOGGER "Removing the following packages: "$*
-    # shellcheck disable=SC2086,SC2048
+    LEVEL='*' $LOGGER "Removing the following packages: "$*
+    # shellcheck disable=SC2048
     apt-get -y remove $*
-    if [ "$REMOVE_ONLY" != "true" ]; then
-        LEVEL='ƒ' $LOGGER "Autoremoving packages..."
-        apt-get -y autoremove
-    fi
-}
-
-updaterc() {
-    case "$(cat "${2:-/etc/bash.bashrc}")" in
-        *"$1"*) ;;
-        *) printf '\n%s\n' "$1" >> "${2:-/etc/bash.bashrc}" ;;
-    esac
 }
 
 # Usage example for defining packages to install:
@@ -135,9 +131,16 @@ __check_semver() {
 # (see `find_version_from_git_tags`, below)
 __rest_call() {
     if [ -n "$API_TOKEN" ]; then
-        curl -fsSL --include "$1" -H "${GITHUB_API_HEADER_ACCEPT}" -H "Authorization: token ${API_TOKEN}"
+        # curl -fsSL --include "$1" -H "${GITHUB_API_HEADER_ACCEPT}" -H "Authorization: token ${API_TOKEN}"
+        wget -q --save-headers -O- \
+            --header="${GITHUB_API_HEADER_ACCEPT}" \
+            --header="Authorization: token ${API_TOKEN}" \
+            "$1"
     else
-        curl -fsSL --include "$1" -H "${GITHUB_API_HEADER_ACCEPT}"
+        # curl -fsSL --include "$1" -H "${GITHUB_API_HEADER_ACCEPT}"
+        wget -q --save-headers -O- \
+            --header="${GITHUB_API_HEADER_ACCEPT}" \
+            "$1"
     fi
 }
 
@@ -156,7 +159,7 @@ __rest_github_tags_paged() {
 
         # Extract the 'Link' header for the next page URL
         # https://docs.github.com/en/rest/using-the-rest-api/using-pagination-in-the-rest-api?apiVersion=2022-11-28
-        next_url=$(echo "$response" | grep -F 'link: <' | sed -e 's/link: <\([^>]*\)>.*rel="next".*/\1/' -e 't' -e 'd')
+        next_url=$(echo "$response" | grep -Fi 'link: <' | sed -e 's/[Ll]ink: <\([^>]*\)>.*rel="next".*/\1/' -e 't' -e 'd')
 
         URL="$next_url"
         page=$((page + 1))
@@ -269,9 +272,22 @@ __install_from_tarball() {
 
     mkdir -p "$INSTALL_PREFIX"
     LEVEL='*' $LOGGER "Downloading from $DOWNLOAD_URL ..."
+    # (
+    #     set -x
+    #     curl -fsSL "$DOWNLOAD_URL" | tar -C "$INSTALL_PREFIX" -"xv${tar_opts}f" -
+    # )
+    # (
+    #     set -x
+    #     wget -qO- "$DOWNLOAD_URL" | tar -C "$INSTALL_PREFIX" -"xv${tar_opts}f" -
+    # )
     (
         set -x
-        curl -fsSL "$DOWNLOAD_URL" | tar -C "$INSTALL_PREFIX" -"xv${tar_opts}f" -
+        _tmpfile="$(mktemp)"
+        wget -q -O "$_tmpfile" "$DOWNLOAD_URL" \
+            && tar -C "$INSTALL_PREFIX" -"xv${tar_opts}f" "$_tmpfile"
+        _rc=$?
+        rm -f "$_tmpfile"
+        return $_rc
     )
 }
 
@@ -284,9 +300,15 @@ __install_from_package() {
     }
 
     LEVEL='*' $LOGGER "Downloading from $DOWNLOAD_URL ..."
+    # (
+    #     set -x
+    #     curl -fsOSL "$DOWNLOAD_URL" \
+    #         && dpkg -i "${DOWNLOAD_URL##*/}" \
+    #         && rm -f "${DOWNLOAD_URL##*/}"
+    # )
     (
         set -x
-        curl -fsOSL "$DOWNLOAD_URL" \
+        wget -q "$DOWNLOAD_URL" \
             && dpkg -i "${DOWNLOAD_URL##*/}" \
             && rm -f "${DOWNLOAD_URL##*/}"
     )

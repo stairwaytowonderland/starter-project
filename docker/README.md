@@ -5,37 +5,36 @@ A detailed guide to the multi-stage Dockerfile, build targets, library scripts, 
 ## Folder Structure
 
 ```none
-<root>
-└── .devcontainer/
-    └── docker/
-        ├── .editorconfig
-        ├── .env                      # Your .env file (not in version control)
-        ├── Dockerfile                # Multi-stage Dockerfile
-        ├── README.md                 # This file
-        ├── sample.env                # The sample env file to be copied'
-        ├── bin/                      # Shell scripts for container lifecycle management
-        │   ├── all.sh
-        │   ├── build.sh
-        │   ├── clean.sh
-        │   ├── executer.sh
-        │   ├── loader.sh
-        │   ├── login.sh
-        │   ├── publish.sh
-        │   └── run.sh
-        ├── etc/                      # etc files to copy
-        │   └── profile.d/            # Profile includes
-        ├── helpers/                  # Helper "scripts" with useful functions;
-        │                               meant to be sourced from other scripts
-        ├── lib-scripts/              # Container installer scripts
-        ├── scripts/                  # Container user scripts
-        │   ├── post-start.sh
-        │   └── start-code-server.sh
-        └── utils/                    # Container utility scripts
-            ├── fixpath.sh
-            ├── healthcheck.sh
-            ├── logger.sh
-            ├── passgen.sh
-            └── pipxpath.sh
+<project>
+└── docker/
+    ├── .editorconfig
+    ├── .env                      # Your .env file (not in version control)
+    ├── Dockerfile                # Multi-stage Dockerfile
+    ├── README.md                 # This file
+    ├── sample.env                # The sample env file to be copied'
+    ├── bin/                      # Shell scripts for container lifecycle management
+    │   ├── all.sh
+    │   ├── build.sh
+    │   ├── clean.sh
+    │   ├── executer.sh
+    │   ├── loader.sh
+    │   ├── login.sh
+    │   ├── publish.sh
+    │   └── run.sh
+    ├── etc/                      # etc files to copy
+    │   └── profile.d/            # Profile includes
+    ├── helpers/                  # Helper "scripts" with useful functions;
+    │                               meant to be sourced from other scripts
+    ├── lib-scripts/              # Container installer scripts
+    ├── scripts/                  # Container user scripts
+    │   ├── post-start.sh
+    │   └── start-code-server.sh
+    └── utils/                    # Container utility scripts
+        ├── fixpath.sh
+        ├── healthcheck.sh
+        ├── logger.sh
+        ├── passgen.sh
+        └── pipxpath.sh
 ```
 
 ## Environment Variables
@@ -87,9 +86,10 @@ graph TD
     builder --> brewbuilder(["(4) brewbuilder"])
     builder --> gobuilder(["(5) gobuilder"])
     builder --> nodebuilder(["(6) nodebuilder"])
-    builder --> pybuilder(["(7) pybuilder"])
     builder --> devbuilder["(8) devbuilder"]
     builder --> production("(16) production")
+
+    cpython{{"stairwaytowonderland/<br/>cpython:$PYTHON_IMAGE_REF"}} --> pybase(["(7) pybase"])
 
     devbuilder --> devuser["(9) devuser"]
     devbuilder --> brewuser["(10) brewuser"]
@@ -97,7 +97,7 @@ graph TD
     brewbuilder -.->|copies brew| brewuser
     gobuilder -.->|copies shfmt| base
     nodebuilder -.->|copies node| devtools
-    pybuilder -.->|copies python| devtools
+    pybase -.->|copies python| devtools
 
     devuser --> dev_parent{"$DEV_PARENT_IMAGE<br/>(build ARG)"}
     brewuser --> dev_parent
@@ -123,12 +123,12 @@ graph TD
     classDef utility fill:#90caf9,stroke:#1976d2,color:#000
     classDef builder fill:#0b5394,stroke:#0b5394,color:#fff
 
-    class alpine,parent parent
+    class alpine,parent,cpython parent
     class base padding
     class base,devtools,cloudtools primary
     class devtools,cloudtools secondary
     class codeserver,codeserver-minimal tertiary
-    class utils,filez,gobuilder,nodebuilder,brewbuilder,pybuilder utility
+    class utils,filez,gobuilder,nodebuilder,brewbuilder,pybase utility
     class builder,devbuilder,devuser,brewuser builder
     class dev_parent small
 ```
@@ -323,38 +323,31 @@ graph LR
 - `NODEJS_HOME` - Node.js installation directory (`/usr/local/lib/nodejs`)
 - `PATH` - Updated to include `$NODEJS_HOME/bin`
 
-### 7. **`pybuilder`** (`FROM builder`)
+### 7. **`pybase`** (`FROM stairwaytowonderland/cpython`)
 
-Builds Python from source in an isolated environment.
+Pulls a pre-built CPython image from the project's own registry.
 
 ```mermaid
 graph LR
-    base_image["$BASE_IMAGE"] --> builder[builder] --> pybuilder[pybuilder]
-    style base_image fill:#1d63ed,stroke:#bcbcbc,color:#ccc
-    style pybuilder fill:#90caf9,stroke:#1976d2,color:#333
+    cpython["stairwaytowonderland/<br/>cpython:$PYTHON_IMAGE_REF"] --> pybase[pybase]
+    style cpython fill:#1d63ed,stroke:#bcbcbc,color:#ccc
+    style pybase fill:#90caf9,stroke:#1976d2,color:#333
 ```
 
-**Purpose**: Compile Python from source without polluting downstream images with build dependencies.
-
-**Uses**: [`python-install.sh`](#python-installsh)
+**Purpose**: Provide a pre-compiled CPython installation for downstream stages without incurring source-build overhead.
 
 **Build Arguments**:
 
-- `PYTHON_VERSION` (default: `none`) - Python version to build from source
-- `PYTHON_INSTALL_PATH` (default: `/usr/local/python`) - Installation directory for compiled Python
+- `PYTHON_VERSION` (default: `3.12`) - Python version (used to construct `PYTHON_IMAGE_REF`)
+- `PYTHON_IMAGE_REF` (default: `$PYTHON_VERSION-$IMAGE_NAME-$VARIANT`) - Full image tag for the cpython image
 
 **Key Features**:
 
-- Compiles Python from source (downloads from python.org)
-- Resulting Python artifacts can be copied to other stages without the build overhead
-- Only runs if `PYTHON_VERSION` is not `system`, `none`, or `devcontainer`
+- Uses a pre-built `stairwaytowonderland/cpython` image rather than compiling from source
+- Removes the logger script to keep the layer clean
+- Resulting Python artifacts are copied to `devtools` via `COPY --from=pybase`
 
-**Environment Variables**:
-
-- `PYTHON_VERSION` - Python version (exported from build ARG)
-
-**Usage Pattern**: Other stages use `COPY --from=pybuilder $PYTHON_INSTALL_PATH $PYTHON_INSTALL_PATH` to get the compiled
-Python without inheriting build dependencies.
+**Usage Pattern**: The `devtools` stage uses `COPY --from=pybase /usr/local/bin /usr/local/bin/` and `COPY --from=pybase $PYTHON_INSTALL_PATH $PYTHON_INSTALL_PATH` to get the pre-built Python without inheriting any build dependencies.
 
 ### 8. **`devbuilder`** (`FROM builder`)
 
@@ -375,18 +368,16 @@ graph LR
 
 - `USERNAME` (default: `devcontainer`), `USER_UID` (default: `1000`), `USER_GID` (default: `$USER_UID`) - User configuration
 - `BREW` (default: `/home/linuxbrew/.linuxbrew/bin/brew`) - Path to Homebrew binary
-- `FIXPATH` (default: `/usr/local/bin/fixpath.sh`) - Installation path for PATH fixing utility
 - `DEV` (default: `false`) - Development mode flag
 - `GIT_VERSION` (default: `latest`) - Git version (`latest`, `system`, or specific version)
-- `PYTHON_VERSION` (default: `none`) - Python version to install
-- `PRE_COMMIT_ENABLED` (default: `false`) - Enable pre-commit hooks
+- `PYTHON_VERSION` (inherits global default: `3.12`) - Python version (passed to devbuilder scripts)
+- `VIRTUAL_ENV_DIR` (default: `"/opt/venv"`) - Path for the Python virtual environment
+- `UNIMATRIX_ENABLED` (default: `true`) - Enable unimatrix terminal screensaver
 - `DEFAULT_ROOT_PASS` (default: `$DEV`) - Set default root password
 
 **Environment Variables**:
 
-- `PATH` - Updated to include `/home/$USERNAME/.local/bin`
-- `PYTHON_VERSION` - Python version (exported from build ARG)
-- `DEV` - Development mode flag (exported from build ARG)
+- `WELCOME_MESSAGE` - Welcome message displayed to the user (default: `"👋 Happy coding!"`)
 
 ### 9. **`devuser`** (`FROM devbuilder`)
 
@@ -460,9 +451,9 @@ graph LR
 
 **Environment Variables**:
 
-- `LOGGER` - Path to logger script (from build ARG)
+- `LOGGER` - Path to logger script (inherited from builder)
 - `DEFAULT_WORKSPACE` - Default workspace path (from build ARG)
-- `RESET_ROOT_PASS` - Root password reset flag (default: `false`)
+- `IGNOREEOF` - Prevent EOF (Ctrl+D) from exiting bash (default: `1`)
 
 ### 12. **`devtools`** (`FROM base`)
 
@@ -476,21 +467,22 @@ graph LR
 
 **Purpose**: Full-featured development environment for Python and Node.js projects.
 
-**Uses**: [`devtools-utils.sh`](#devtools-utilssh), [`python-install.sh`](#python-installsh)
+**Uses**: [`devtools-utils.sh`](#devtools-utilssh)
 
 **Build Arguments**:
 
 - `NO_BREW_UPDATE` (default: `$DEV`) - Skip brew update if true
-- `PYTHON_VERSION` (default: `none`) - Python version to install
-- `PYTHON_INSTALL_PATH` (default: `/usr/local/python`) - Path to Python installation
+- `NODEPATH` (default: `/home/$USERNAME/.local/lib/node/nodejs`) - Node.js installation directory path
+- `PYTHON_INSTALL_PATH` (default: `/usr/local/lib`) - Path to copy Python installation into
+- `PIP_INSTALL` (default: `/usr/local/bin/pip-install.sh`) - Path to pip-install helper script
+- `PYTHON_TOOLS` (default: `poetry uv pre-commit`) - Space-separated list of Python tools to install via pip
 
 **Key Features**:
 
-- Copies pre-compiled Python from pybuilder stage (avoids build dependencies in layer)
-- Installs Python via Homebrew (if `DEV_PARENT_IMAGE=brewuser` and `PYTHON_VERSION` specified)
-- Installs pipx, Poetry, and uv (Python package managers)
-- Installs Node.js from nodebuilder stage
-- Optionally installs pre-commit via pipx
+- Copies pre-built Python from `pybase` stage (avoids build dependencies in layer)
+- Installs pipx, Poetry, uv, and pre-commit
+- Installs Node.js from `nodebuilder` stage
+- Creates `/opt/venv` virtual environment
 - Includes docker-entrypoint.sh for container initialization
 
 **Environment Variables**:
@@ -498,7 +490,7 @@ graph LR
 - `NODEJS_HOME` - Node.js installation path
 - `RESET_ROOT_PASS` - Control root password reset at startup
 
-**Entrypoint**: `docker-entrypoint.sh` - Handles root password reset and displays `fortune | cowsay`
+**Entrypoint**: `docker-entrypoint.sh` - Handles root password reset
 
 ### 13. **`cloudtools`** (`FROM base`)
 
@@ -642,22 +634,21 @@ The Dockerfile accepts several build arguments for customization:
 | `TIMEZONE`             | `UTC`                                    | builder        | Container timezone                                          |
 | `NODE_VERSION`         | `lts`                                    | nodebuilder    | Node.js version (lts, latest, or specific)                  |
 | `NODEPATH`             | `/usr/local/lib/node/nodejs`             | nodebuilder    | Node.js installation directory path                         |
-| `PYTHON_VERSION`       | `none`                                   | pybuilder      | Python version to build from source                         |
-| `PYTHON_INSTALL_PATH`  | `/usr/local/python`                      | pybuilder      | Installation directory for compiled Python                  |
-| `PACKAGE_CLEANUP`      | `false`                                  | pybuilder      | Remove build packages after Python compilation              |
+| `PYTHON_VERSION`       | `3.12`                                   | global         | Python version (used to derive `PYTHON_IMAGE_REF`)          |
+| `PYTHON_IMAGE_REF`     | `$PYTHON_VERSION-$IMAGE_NAME-$VARIANT`   | pybase         | Full image tag for `stairwaytowonderland/cpython`           |
 | `DEV`                  | `false`                                  | devbuilder     | Development mode flag                                       |
 | `GIT_VERSION`          | `latest`                                 | devbuilder     | Git version (system, latest, or specific)                   |
-| `PYTHON_VERSION`       | `none`                                   | devbuilder     | Python version (devcontainer, system, latest, or specific)  |
-| `PRE_COMMIT_ENABLED`   | `false`                                  | devbuilder     | Install pre-commit hooks                                    |
 | `DEFAULT_ROOT_PASS`    | `false`                                  | devbuilder     | Set default root password (dev only)                        |
 | `BREW`                 | `/home/linuxbrew/.linuxbrew/bin/brew`    | devbuilder     | Path to Homebrew binary                                     |
-| `FIXPATH`              | `/usr/local/bin/fixpath.sh`              | devbuilder     | Installation path for PATH fixing utility (build-time only) |
+| `VIRTUAL_ENV_DIR`      | `"/opt/venv"`                            | devbuilder     | Path for the Python virtual environment                     |
+| `UNIMATRIX_ENABLED`    | `true`                                   | devbuilder     | Enable unimatrix terminal screensaver                       |
 | `PIPX`                 | `/usr/local/bin/pipxpath.sh`             | base           | Installation path for pipx wrapper script (build-time only) |
 | `PRE_COMMIT_ENABLED`   | `false`                                  | base           | Install pre-commit hooks via pipx/brew                      |
 | `DEFAULT_WORKSPACE`    | `/home/$USERNAME/workspace`              | base           | Default workspace directory                                 |
-| `PRE_COMMIT_ENABLED`   | `false`                                  | devtools       | Install pre-commit hooks via pipx/brew                      |
 | `NODEPATH`             | `/home/$USERNAME/.local/lib/node/nodejs` | devtools       | Node.js installation directory path                         |
-| `PYTHON_INSTALL_PATH`  | `/usr/local/python`                      | devtools       | Path to Python installation directory                       |
+| `PYTHON_INSTALL_PATH`  | `/usr/local/lib`                         | devtools       | Path to copy Python installation from `pybase`              |
+| `PIP_INSTALL`          | `/usr/local/bin/pip-install.sh`          | devtools       | Path to pip-install helper script                           |
+| `PYTHON_TOOLS`         | `poetry uv pre-commit`                   | devtools       | Space-separated Python tools to install                     |
 | `NO_BREW_UPDATE`       | `$DEV`                                   | devtools       | Skip Homebrew update during build                           |
 | `BIND_ADDR`            | `0.0.0.0:13337`                          | codeserver*    | code-server bind address                                    |
 | `DOWNLOAD_STANDALONE`  | `true`                                   | codeserver*    | Install code-server as standalone tar.gz                    |
@@ -669,15 +660,12 @@ The Dockerfile accepts several build arguments for customization:
 | `LOGGER`                 | `/usr/local/bin/logger.sh`                                   | builder     | Logger script path                     |
 | `TZ`                     | `$TIMEZONE`                                                  | builder     | Timezone                               |
 | `LANG`, `LC_ALL`         | `C.UTF-8`                                                    | builder     | Locale settings                        |
-| `DASSGEN`                | `/usr/local/bin/passgen.sh`                                  | builder     | Password generator script path         |
+| `PASSGEN`                | `/usr/local/bin/passgen.sh`                                  | builder     | Password generator script path         |
 | `DEFAULT_PASS_LENGTH`    | `32`                                                         | builder     | Default password length                |
 | `DEFAULT_PASS_CHARSET`   | `[:graph:]`                                                  | builder     | Default password character set         |
 | `PATH`                   | `/usr/local/lib/nodejs/bin:$PATH`                            | nodebuilder | Node.js binaries in PATH               |
 | `NODEJS_HOME`            | `/usr/local/lib/nodejs`                                      | nodebuilder | Node.js installation directory         |
-| `PYTHON_VERSION`         | Build arg value                                              | pybuilder   | Python version being built             |
-| `PATH`                   | `/home/$USERNAME/.local/bin:$PATH`                           | devbuilder  | User local binaries in PATH            |
-| `PYTHON_VERSION`         | Build arg value                                              | devbuilder  | Python version to install              |
-| `DEV`                    | Build arg value                                              | devbuilder  | Development mode flag                  |
+| `WELCOME_MESSAGE`        | `"👋 Happy coding!"`                                          | devbuilder  | Welcome message displayed to the user  |
 | `DEFAULT_WORKSPACE`      | `/home/$USERNAME/workspace`                                  | base        | Default workspace directory            |
 | `IGNOREEOF`              | `1`                                                          | base        | Prevent EOF (Ctrl+D) from exiting bash |
 | `PATH`                   | `/home/$USERNAME/.local/lib/nodejs/bin:$PATH`                | devtools    | Node.js binaries in PATH               |
@@ -855,7 +843,6 @@ Installs development tools and utilities.
 - Development build tools
 - Version control utilities
 - Editor and terminal enhancements
-- `fortune-mod`, `cowsay` - Fun terminal utilities
 
 **Dependencies**: Requires `/helpers/install-helper.sh`
 
@@ -924,72 +911,10 @@ Installs Node.js and npm.
 - Architecture-aware
 - Creates installation script for reuse in other stages
 
-### `python-install.sh`
-
-Installs Python and configures Python environment.
-
-**Used by**: [`pybuilder`](#7-pybuilder-from-builder)
-
-**Installation Options**:
-
-- `system` - Use system Python3
-- `devcontainer` - Use devcontainer Python feature
-- `latest` - Install latest Python via Homebrew
-- `X.Y` - Install specific Python version via Homebrew
-
-**Build Arguments**:
-
-- `PYTHON_VERSION` (default: `devcontainer`)
-
-**Post-Installation**:
-
-- Configures pipx (via Homebrew or system)
-- Installs Poetry and uv (modern Python package managers)
-- Optionally installs pre-commit via pipx
-
 ## Utility Scripts (`utils/`)
 
 Utility scripts are helper scripts available at runtime in the container. They are copied to `/usr/local/bin/` and can
 be invoked directly.
-
-### `fixpath.sh`
-
-Fixes and deduplicates the PATH environment variable.
-
-**Installed at**: `/usr/local/bin/fixpath.sh`
-
-**Usage**:
-
-```bash
-fixpath.sh [term] [path]
-```
-
-**Arguments**:
-
-- `term` (default: `/usr/local/sbin`) - First common entry in PATH
-- `path` (default: `$PATH`) - PATH string to fix
-
-**Purpose**:
-
-- Synchronizes container PATH with `/etc/environment`
-- Removes duplicate PATH entries
-- Ensures consistent PATH across shells and sessions
-
-**Output**: Deduplicated PATH string
-
-**Example**:
-
-```bash
-# Fix current PATH
-PATH="$(fixpath.sh)"
-
-# Fix custom PATH
-PATH="$(fixpath.sh /usr/local/sbin "/custom/path:/usr/bin")"
-```
-
-> [!NOTE]
-> The `FIXPATH` variable you may see in build documentation is a Docker build ARG that specifies the installation path
-> during the build process. At runtime, simply invoke the script as shown above.
 
 ### `healthcheck.sh`
 
@@ -1200,26 +1125,26 @@ build.sh <image-name[:<build_target>]> [<build-args...>] [<options>] [<context>]
 
 ```bash
 # Build with default settings
-./.devcontainer/docker/bin/build.sh starter-project
+./docker/bin/build.sh starter-project
 
 # Build with standard user and context
-./.devcontainer/docker/bin/build.sh starter-project vscode .
+./docker/bin/build.sh starter-project vscode .
 
 # Build with build args and options
-./.devcontainer/docker/bin/build.sh starter-project \
+./docker/bin/build.sh starter-project \
   --build-arg VARIANT=jammy \
   --no-cache \
   --progress=plain
 
 # Build custom target
-./.devcontainer/docker/bin/build.sh starter-project:production
+./docker/bin/build.sh starter-project:production
 
 # Using environment variables
 IMAGE_NAME=starter-project \
 DOCKER_TARGET=devcontainer \
 REMOTE_USER=vscode \
 DOCKER_CONTEXT=. \
-./.devcontainer/docker/bin/build.sh
+./docker/bin/build.sh
 ```
 
 ### `run.sh`
@@ -1249,17 +1174,17 @@ run.sh <image-name[:<build_target>]> [<remote-user>] [<commands>] [<context>]
 
 ```bash
 # Run with short form (adds :devcontainer automatically)
-./.devcontainer/docker/bin/run.sh starter-project
+./docker/bin/run.sh starter-project
 
 # Run custom target
-./.devcontainer/docker/bin/run.sh starter-project:production
+./docker/bin/run.sh starter-project:production
 
 # Run from GitHub Container Registry
-./.devcontainer/docker/bin/run.sh \
+./docker/bin/run.sh \
   ghcr.io/stairwaytowonderland/starter-project:latest
 
 # Run with custom user and context
-./.devcontainer/docker/bin/run.sh starter-project vscode .
+./docker/bin/run.sh starter-project vscode .
 ```
 
 ### `publish.sh`
@@ -1296,12 +1221,12 @@ publish.sh <image-name[:<build_target>]> [<github-username>] [<image-version>]
 
 ```bash
 # Publish with short form
-./.devcontainer/docker/bin/publish.sh \
+./docker/bin/publish.sh \
   starter-project \
   stairwaytowonderland
 
 # Publish with all arguments
-CR_PAT=<your-github-token> ./.devcontainer/docker/bin/publish.sh \
+CR_PAT=<your-github-token> ./docker/bin/publish.sh \
     starter-project:<target> \
     stairwaytowonderland \
     latest
@@ -1310,11 +1235,11 @@ CR_PAT=<your-github-token> ./.devcontainer/docker/bin/publish.sh \
 REGISTRY_USER=<your-github-user> \
 CR_PAT=<your-github-token> \
 IMAGE_NAME=starter-project \
-./.devcontainer/docker/bin/publish.sh
+./docker/bin/publish.sh
 
 # Using GitHub CLI token
 export CR_PAT=$(gh auth token)
-./.devcontainer/docker/bin/publish.sh \
+./docker/bin/publish.sh \
   starter-project \
   stairwaytowonderland
 ```
@@ -1334,7 +1259,7 @@ clean.sh
 
 ```bash
 # Remove all dangling images
-./.devcontainer/docker/bin/clean.sh
+./docker/bin/clean.sh
 ```
 
 > [!NOTE]
@@ -1345,19 +1270,19 @@ clean.sh
 
 ```bash
 # 1. Build the image with a custom user and context
-./.devcontainer/docker/bin/build.sh starter-project vscode .
+./docker/bin/build.sh starter-project vscode .
 
 # 2. Test run locally with custom user and context
-./.devcontainer/docker/bin/run.sh starter-project vscode .
+./docker/bin/run.sh starter-project vscode .
 
 # 3. Publish to GHCR
 CR_PAT=<your_github_token> \
-  ./.devcontainer/docker/bin/publish.sh \
+  ./docker/bin/publish.sh \
     starter-project \
     <your_github_username>
 
 # 4. (Optional) Test run from GHCR
-./.devcontainer/docker/bin/run.sh \
+./docker/bin/run.sh \
   ghcr.io/<your_github_username>/starter-project:latest \
   vscode \
   .

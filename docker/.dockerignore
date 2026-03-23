@@ -1,0 +1,10 @@
+/docker/bin
+**/.*
+**/__*
+**/Dockerfile
+**/*.bak
+**/*.old
+**/*.orig
+**/*.private
+**/*.tmp
+**/*.md

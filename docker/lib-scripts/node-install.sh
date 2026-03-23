@@ -19,7 +19,9 @@ DOWNLOAD_PREFIX="https://nodejs.org/dist/v"
 LEVEL='ƒ' $LOGGER "Installing $TOOL_LABEL..."
 
 if [ "$VERSION" = "latest" ] || [ "$VERSION" = "lts" ] || [ "$VERSION" = "current" ]; then
-    VERSION="$(curl -sSLf https://api.github.com/repos/$GITHUB_REPO/releases/latest \
+    # VERSION="$(curl -sSLf https://api.github.com/repos/$GITHUB_REPO/releases/latest \
+    #     | jq -r .tag_name | sed 's/^v//')"
+    VERSION="$(wget -qO- https://api.github.com/repos/$GITHUB_REPO/releases/latest \
         | jq -r .tag_name | sed 's/^v//')"
 fi
 

@@ -17,7 +17,9 @@ DOWNLOAD_STANDALONE="${DOWNLOAD_STANDALONE:-false}"
 LEVEL='ƒ' $LOGGER "Installing $TOOL_LABEL utilities..."
 
 if [ "$VERSION" = "latest" ]; then
-    VERSION="$(curl -sSLf https://api.github.com/repos/${GITHUB_REPO}/releases/latest \
+    # VERSION="$(curl -sSLf https://api.github.com/repos/${GITHUB_REPO}/releases/latest \
+    #     | jq -r .tag_name | sed 's/^v//')"
+    VERSION="$(wget -qO- https://api.github.com/repos/${GITHUB_REPO}/releases/latest \
         | jq -r .tag_name | sed 's/^v//')"
 fi
 

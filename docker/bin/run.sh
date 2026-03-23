@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1091
 
-# [REMOTE_HUB=<your-remote-hub>] ./.devcontainer/docker/bin/run.sh \
+# [REMOTE_HUB=<your-remote-hub>] ./docker/bin/run.sh \
 #   starter-project:<target> \
 #   vscode \
 #   .
@@ -31,6 +31,9 @@ BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-ubuntu}"
 BASE_IMAGE_VARIANT="${BASE_IMAGE_VARIANT:-latest}"
 TERM="${TERM-}"
 TIMEZONE="${TIMEZONE-$(zoneinfo)}"
+[ "$BASE_IMAGE_VARIANT" = "latest" ] \
+    && BASE_IMAGE_REF="$BASE_IMAGE_NAME" \
+    || BASE_IMAGE_REF="${BASE_IMAGE_VARIANT}"
 
 if [ $# -lt 1 ]; then
     echo "Usage: $0 <image-name[:build_target]> [remote-user] [context]" >&2
@@ -47,7 +50,7 @@ DOCKER_TARGET=${DOCKER_TARGET:-"base"}
 if [ -d "$last_arg" ]; then
     RUN_CONTEXT="$last_arg"
 else
-    RUN_CONTEXT="${RUN_CONTEXT:-"${script_dir}/../../.."}"
+    RUN_CONTEXT="${RUN_CONTEXT:-"${script_dir}/../.."}"
 fi
 if [ ! -d "$RUN_CONTEXT" ]; then
     echo "(!) Docker context directory not found at expected path: ${RUN_CONTEXT}" >&2
@@ -73,10 +76,14 @@ else
 
     tag_prefix="${IMAGE_NAME}:${DOCKER_TARGET}"
     # Append base image name if variant is 'latest'
-    [ "$BASE_IMAGE_VARIANT" != "latest" ] || tag_prefix="${tag_prefix}-${BASE_IMAGE_NAME}"
-
-    build_tag="${tag_prefix}-${BASE_IMAGE_VARIANT}"
-    publish_tag="${tag_prefix}-${tag_suffix}"
+    if [ "$BASE_IMAGE_VARIANT" = "latest" ]; then
+        build_tag="${tag_prefix}-${BASE_IMAGE_REF}"
+        publish_tag="${build_tag}"
+    else
+        build_tag="${tag_prefix}-${BASE_IMAGE_VARIANT}"
+        publish_tag="${build_tag}"
+    fi
+    [ "$IMAGE_VERSION" = "latest" ] || publish_tag="${publish_tag}-${IMAGE_VERSION}"
 
     build_id="$(docker images -q "$build_tag")"
     publish_id="$(docker images -q "$publish_tag")"
