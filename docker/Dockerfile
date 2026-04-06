@@ -195,13 +195,6 @@ CMD ["/bin/bash"]
 
 # FROM builder AS pybuilder
 FROM stairwaytowonderland/cpython:${PYTHON_IMAGE_REF} AS pybase
-
-USER root
-
-RUN rm -f $LOGGER
-
-CMD ["/bin/bash"]
-
 # --------------------------------------------------------------
 
 
@@ -234,8 +227,8 @@ ARG USER_UID=1000 \
     UNIMATRIX_ENABLED=true
 
 # Update PATH here so that all shells contain the updated PATH
-ENV WELCOME_MESSAGE="👋 Happy coding!"
-    # PATH="/home/$USERNAME/.local/bin:$PATH"
+ENV WELCOME_MESSAGE="👋 Happy coding!" \
+    PATH="/home/$USERNAME/.local/bin:$PATH"
     # Export PYTHON_VERSION for convenience
     # PYTHON_VERSION=$PYTHON_VERSION
     # Export HOMEBREW_REPOSITORY so brew can always locate Library/Homebrew/brew.sh
@@ -250,7 +243,7 @@ COPY --chmod=755 docker/lib-scripts/devbuilder*.sh \
 RUN /tmp/lib-scripts/devbuilder-utils.sh \
   && /tmp/lib-scripts/git-install.sh \
   && /tmp/lib-scripts/devbuilder-user-setup.sh \
-  && mkdir -p "$VIRTUAL_ENV_DIR" \
+  && { [ -d "$VIRTUAL_ENV_DIR" ] || mkdir -p "$VIRTUAL_ENV_DIR"; } \
   && chown "$USERNAME:$USERNAME" "$VIRTUAL_ENV_DIR" \
   # Cleanup
   && apt-get clean -y \
@@ -375,6 +368,7 @@ COPY --chmod=755 docker/lib-scripts/devtools-*.sh /tmp/lib-scripts/
 
 ARG NODEPATH=/home/$USERNAME/.local/lib/node/nodejs \
     PYTHON_INSTALL_PATH=/usr/local/lib \
+    SYSTEM_INSTALL_PREFIX=/usr \
     PIP_INSTALL=/usr/local/bin/pip-install.sh \
     PYTHON_TOOLS='poetry uv pre-commit'
 
@@ -388,6 +382,7 @@ COPY --from=nodebuilder --chmod=755 /tmp/node-* /tmp/
 # Copy Python installation from pybase
 COPY --from=pybase /usr/local/bin /usr/local/bin/
 COPY --from=pybase $PYTHON_INSTALL_PATH $PYTHON_INSTALL_PATH
+# COPY --from=pybase $SYSTEM_INSTALL_PREFIX/lib/pkgconfig $SYSTEM_INSTALL_PREFIX/lib/pkgconfig/
 
 USER root
 
@@ -401,23 +396,15 @@ RUN /tmp/lib-scripts/devtools-utils.sh \
   && if echo "$PYTHON_TOOLS" | grep -qw pre-commit && type pre-commit >/dev/null 2>&1; then \
     apt-get -y remove pre-commit || true; \
   fi \
-  && "$PYTHON_INSTALL_PATH/python-setup" \
+  # Install default Python tools if not already installed (e.g. via Homebrew)
+  && "$PIPX" >/dev/null 2>&1 || "$PIP_INSTALL" pipx \
+  && $LOGGER "Installing Python dev tools: $PYTHON_TOOLS..." \
+  && INSTALL_TOOLS=true "$PYTHON_INSTALL_PATH/python-setup" \
   # Cleanup
   && apt-get -y autoremove \
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/* \
-  && rm -rf /tmp/* \
-  # Install default Python tools if not already installed (e.g. via Homebrew)
-  && "$PIPX" >/dev/null 2>&1 || "$PIP_INSTALL" pipx \
-  && $LOGGER "Installing Python dev tools: $PYTHON_TOOLS..." \
-  && for tool in $PYTHON_TOOLS; do \
-    if [ "$tool" = "pre-commit" ] && type "$tool" >/dev/null 2>&1; then \
-      apt-get -y remove pre-commit || true \
-        && $PIP_INSTALL "$tool"; \
-    elif [ "$tool" != "pre-commit" ]; then \
-      type "$tool" >/dev/null 2>&1 || $PIP_INSTALL "$tool"; \
-    fi; \
-  done
+  && rm -rf /tmp/*
 
 # Switch to non-root user
 USER $USERNAME
@@ -500,12 +487,14 @@ RUN /tmp/lib-scripts/codeserver-utils.sh \
 #   && $LOGGER "code-server installation complete."
 
 ARG BIND_ADDR=0.0.0.0:13337 \
-    DOWNLOAD_STANDALONE=true
+    DOWNLOAD_STANDALONE=true \
+    CODESERVER_VERSION=latest
 ENV BIND_ADDR=$BIND_ADDR \
     # Don't put CODE_SERVER_CONFIG in workspace directly to avoid issues with volume mounts
     CODE_SERVER_WORKSPACE=$DEFAULT_WORKSPACE \
     CODE_SERVER_CONFIG=/home/$USERNAME/.config/code-server/config.yaml \
-    CODE_SERVER_EXTENSIONS=$DEFAULT_WORKSPACE/.code-server/extensions/extensions.json
+    CODE_SERVER_EXTENSIONS=$DEFAULT_WORKSPACE/.code-server/extensions/extensions.json \
+    USERNAME=$USERNAME
 
 # If standalone download is false, use root to install the .deb package
 # If standalone download is true use $USERNAME to install the tar.gz package
@@ -571,13 +560,14 @@ RUN /tmp/lib-scripts/codeserver-utils.sh \
 #   && $LOGGER "code-server installation complete."
 
 ARG BIND_ADDR=0.0.0.0:13337 \
-    DOWNLOAD_STANDALONE=true
+    DOWNLOAD_STANDALONE=true \
+    CODESERVER_VERSION=latest
 ENV BIND_ADDR=$BIND_ADDR \
     # Don't put CODE_SERVER_CONFIG in workspace directly to avoid issues with volume mounts
     CODE_SERVER_WORKSPACE=$DEFAULT_WORKSPACE \
     CODE_SERVER_CONFIG=/home/$USERNAME/.config/code-server/config.yaml \
     CODE_SERVER_EXTENSIONS=$DEFAULT_WORKSPACE/.code-server/extensions/extensions.json \
-    DOWNLOAD_STANDALONE=true \
+    USERNAME=$USERNAME \
     DEBUG=false
 
 # If standalone download is false, use root to install the .deb package

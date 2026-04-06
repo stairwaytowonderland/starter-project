@@ -98,16 +98,16 @@ cat << EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
 if type "$BREW" &>/dev/null
 then
     eval "\$($BREW shellenv)"
-fi
 
-PYTHON_BREW_PATH="\$("$BREW" --prefix)/opt/python3/bin"
-if test -d "\$PYTHON_BREW_PATH"
-then
-    # PATH="\${PYTHON_BREW_PATH}:\${PATH}"
-    case ":\$PATH:" in
-        *":\$PYTHON_BREW_PATH:"*) ;;
-        *) PATH="\$PYTHON_BREW_PATH:\$PATH" ;;
-    esac
+    PYTHON_BREW_PATH="\$("$BREW" --prefix)/opt/python3/bin"
+    if test -d "\$PYTHON_BREW_PATH"
+    then
+        # PATH="\${PYTHON_BREW_PATH}:\${PATH}"
+        case ":\$PATH:" in
+            *":\$PYTHON_BREW_PATH:"*) ;;
+            *) PATH="\$PYTHON_BREW_PATH:\$PATH" ;;
+        esac
+    fi
 fi
 
 if test -d "/home/$USERNAME/.local/bin"
@@ -219,6 +219,7 @@ fi
 
 # Handle exit
 __quit() { printf "🤖 %s 🤖\n" "Klaatu barada nikto" >&2; }
+# __quit() { printf "🐬 %s 🐬\n" "So long, and thanks for all the fish" >&2; }
 
 # Handle cancelled operations (e.g., Ctrl+C)
 __control_c() {
