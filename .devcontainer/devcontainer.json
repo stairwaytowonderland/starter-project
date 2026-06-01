@@ -1,32 +1,34 @@
 {
 	"name": "Starter Project Dev Container",
-	"image": "ghcr.io/stairwaytowonderland/starter-project:latest",
+	// "image": "ghcr.io/stairwaytowonderland/starter-project:latest",
 	// "image": "ghcr.io/stairwaytowonderland/starter-project:base-ubuntu-latest",
 	// "image": "ghcr.io/stairwaytowonderland/starter-project:base-bookworm-slim",
 	// "image": "ghcr.io/stairwaytowonderland/starter-project:devtools-ubuntu-latest",
 	// "image": "ghcr.io/stairwaytowonderland/starter-project:devtools-bookworm-slim",
 	// "image": "ghcr.io/stairwaytowonderland/starter-project:cloudtools-ubuntu-latest",
 	// "image": "ghcr.io/stairwaytowonderland/starter-project:cloudtools-bookworm-slim",
-	// "build": {
-	// 	"dockerfile": "../docker/Dockerfile",
-	// 	"target": "<docker-build-target>", // e.g., "base", "devtools", "cloudtools"
-	// 	"context": "..",
-	// 	"args": {
-	// 		"USERNAME": "vscode"
-	// 		// "IMAGE_NAME": "debian",
-	// 		// "VARIANT": "bookworm-slim",
-	// 		// "USER_UID": "1000",
-	// 		// "USER_GID": "1000",
-	// 		// "TIMEZONE": "America/Chicago",
+	"build": {
+		"dockerfile": "../docker/Dockerfile",
+		"target": "devtools", // e.g., "base", "devtools", "cloudtools"
+		"context": "..",
+		"args": {
+			"USERNAME": "vscode",
 
-	// 		* Enable Homebrew installation and usage in the container (disabled by default)
-	// 		// "DEV_PARENT_IMAGE": "brewuser",
+			// "IMAGE_NAME": "debian",
+			// "VARIANT": "bookworm-slim"
+			// "USER_UID": "1000",
+			// "USER_GID": "1000",
+			// "TIMEZONE": "America/Chicago",
 
-	// 		* NOTE: "devcontainer", "system", "latest", or specific version like "3.12"
-	// 		* Use "devcontainer" if using the Python devcontainer feature
-	// 		// "PYTHON_VERSION": "devcontainer"
-	// 	}
-	// },
+			// * Enable Homebrew installation and usage in the container (disabled by default)
+			// // "DEV_PARENT_IMAGE": "brewuser",
+
+			// * Set explicit PYTHON_VERSION
+			// // "PYTHON_VERSION": "3.12"
+
+			"UNIMATRIX_ENABLED": "true"
+		}
+	},
 	// Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root
 	"remoteUser": "vscode",
 

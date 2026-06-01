@@ -28,8 +28,11 @@ fi
 
 update_and_install "${PACKAGES_TO_INSTALL# }"
 
-if [ "${UNIMATRIX_ENABLED:-true}" = "true" ]; then
+if [ "${UNIMATRIX_ENABLED:-false}" = "true" ]; then
     LEVEL='*' $LOGGER "Installing unimatrix..."
+    if ! type python3 > /dev/null 2>&1; then
+        LEVEL='!' $LOGGER "Python3 is required to run unimatrix. Please ensure Python3 is installed or set UNIMATRIX_ENABLED=false." >&2
+    fi
     # curl -fsSL https://raw.githubusercontent.com/will8211/unimatrix/master/unimatrix.py -o /tmp/unimatrix.py \
     wget -qO /tmp/unimatrix.py https://raw.githubusercontent.com/will8211/unimatrix/master/unimatrix.py \
         && install /tmp/unimatrix.py /usr/local/bin/unimatrix
@@ -121,11 +124,20 @@ aliascow() {
         echo -en "\${C_RESET}"
     fi
 }
-showmatrix() { unimatrix -af -l 'k' -s "\${2:-98}" -t "\${1:-2}" -i; }
+
+if type unimatrix >/dev/null 2>&1 && [ "\${SHOW_MATRIX:-false}" = "true" ]
+then
+    if ! type python3 > /dev/null 2>&1
+    then
+        echo "(!) Python3 is required to run unimatrix." >&2
+    else
+        showmatrix() { unimatrix -af -l 'k' -s "\${2:-98}" -t "\${1:-2}" -i; }
+    fi
+fi
 
 if [ -t 1 ]
 then
-    if type unimatrix >/dev/null 2>&1 && [ "\${SHOW_MATRIX:-false}" = "true" ]
+    if type showmatrix >/dev/null 2>&1
     then
         showmatrix "\${MATRIX_TIME-}" "\${MATRIX_SPEED-}"
     fi

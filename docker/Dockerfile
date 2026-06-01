@@ -1,10 +1,10 @@
 # Must be debian-based image
 ARG IMAGE_NAME=ubuntu
-ARG VARIANT=${VARIANT:-latest}
-ARG BASE_IMAGE=${IMAGE_NAME}:${VARIANT}
+ARG VARIANT=
+ARG BASE_IMAGE=${IMAGE_NAME}:${VARIANT:-latest}
 ARG DEV_PARENT_IMAGE=devuser
 ARG PYTHON_VERSION=3.12
-ARG PYTHON_IMAGE_REF=${PYTHON_VERSION}-${IMAGE_NAME}-${VARIANT}
+ARG PYTHON_IMAGE_REF=${PYTHON_VERSION}-${VARIANT:-$IMAGE_NAME}
 
 # --------------------------------------------------------------
 # Generator stages for core utility scripts
@@ -224,7 +224,7 @@ ARG USER_UID=1000 \
     # (unimatrix is a fun terminal screensaver that runs a matrix-style animation;
     # it has no functional purpose but can be a fun addition to the devcontainer for some users.
     # unimatrix has a tiny footprint, so it's enabled by default.)
-    UNIMATRIX_ENABLED=true
+    UNIMATRIX_ENABLED=false
 
 # Update PATH here so that all shells contain the updated PATH
 ENV WELCOME_MESSAGE="👋 Happy coding!" \
@@ -271,6 +271,15 @@ FROM devbuilder AS brewuser
 
 WORKDIR /home/linuxbrew
 COPY --from=brewbuilder --chown=$USERNAME:$USERNAME /home/linuxbrew .
+
+USER root
+
+RUN apt-get update \
+  && apt-get -y install --no-install-recommends \
+    python3 \
+    python3-venv \
+  && apt-get clean -y \
+  && rm -rf /var/lib/apt/lists/*
 
 USER $USERNAME
 WORKDIR /home/$USERNAME

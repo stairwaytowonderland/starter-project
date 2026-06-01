@@ -24,7 +24,7 @@ __log() {
         debug | info | warn | warning | error)
             LEVEL="$(echo "$LEVEL" | tr '[:lower:]' '[:upper:]')"
             ;;
-        '**')
+        '**' | '¡')
             LEVEL="INFO"
             template="[%s] [%s] ** %s"
             ;;
@@ -32,8 +32,12 @@ __log() {
             LEVEL="SUCCESS"
             template="[%s] [%s] ** %s"
             ;;
-        '!' | '¡')
+        '!')
             LEVEL="WARNING"
+            template="[%s] [%s] !! %s"
+            ;;
+        '!!')
+            LEVEL="ERROR"
             template="[%s] [%s] !! %s"
             ;;
         *) LEVEL="INFO" ;;
