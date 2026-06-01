@@ -5,27 +5,24 @@ Use this repo as a starting point for other new projects.
 ## Project Structure
 
 ```none
-<project>
+.
 ├── .devcontainer/
-│   ├── devcontainer.json     # VS Code Dev Container configuration
+│   ├── devcontainer.json # VS Code Dev Container configuration
 │   └── README.md
 ├── docker/               # Dev Container Docker files and scripts
-│   ├── Dockerfile        # Multi-stage Dockerfile
-│   ├── README.md
 │   ├── bin/              # Shell scripts for container lifecycle management
+│   ├── etc/              # etc files to copy
+│   │   ├── profile.d/    # Profile includes
+│   │   └── nanorc
 │   ├── helpers/          # Helper "scripts" with useful functions;
 │   │                       meant to be sourced from other scripts
-│   ├── etc/              # etc files to copy
-│   │   └── profile.d/    # Profile includes
 │   ├── lib-scripts/      # Container installer scripts
 │   ├── scripts/          # Container user scripts
-│   └── utils/            # Container utility scripts
-├── .vscode/
-│   ├── extensions.json       # VS Code recommended extensions file
-│   └── settings.json         # VS Code settings file
-├── src                       # Source files (example)
-├── ...                       # Other project files
-└── README.md                 # This file
+│   ├── utils/            # Container utility scripts
+│   ├── Dockerfile        # Multi-stage Dockerfile
+│   └── README.md
+├── ...                   # Other project files
+└── README.md             # THIS FILE
 ```
 
 ## Getting Started
