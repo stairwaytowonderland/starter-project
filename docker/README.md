@@ -5,36 +5,35 @@ A detailed guide to the multi-stage Dockerfile, build targets, library scripts, 
 ## Folder Structure
 
 ```none
-<project>
-└── docker/
-    ├── .editorconfig
-    ├── .env                      # Your .env file (not in version control)
-    ├── Dockerfile                # Multi-stage Dockerfile
-    ├── README.md                 # This file
-    ├── sample.env                # The sample env file to be copied'
-    ├── bin/                      # Shell scripts for container lifecycle management
-    │   ├── all.sh
-    │   ├── build.sh
-    │   ├── clean.sh
-    │   ├── executer.sh
-    │   ├── loader.sh
-    │   ├── login.sh
-    │   ├── publish.sh
-    │   └── run.sh
-    ├── etc/                      # etc files to copy
-    │   └── profile.d/            # Profile includes
-    ├── helpers/                  # Helper "scripts" with useful functions;
-    │                               meant to be sourced from other scripts
-    ├── lib-scripts/              # Container installer scripts
-    ├── scripts/                  # Container user scripts
-    │   ├── post-start.sh
-    │   └── start-code-server.sh
-    └── utils/                    # Container utility scripts
-        ├── fixpath.sh
-        ├── healthcheck.sh
-        ├── logger.sh
-        ├── passgen.sh
-        └── pipxpath.sh
+.
+├── bin/                      # Shell scripts for container lifecycle management
+│   ├── all.sh
+│   ├── build.sh
+│   ├── clean.sh
+│   ├── executer.sh
+│   ├── loader.sh
+│   ├── login.sh
+│   ├── publish.sh
+│   └── run.sh
+├── etc/                      # etc files to copy
+│   ├── profile.d/            # Profile includes
+│   └── nanorc
+├── helpers/                  # Helper "scripts" with useful functions;
+│                               meant to be sourced from other scripts
+├── lib-scripts/              # Container installer scripts
+├── scripts/                  # Container user scripts
+│   ├── post-start.sh
+│   └── start-code-server.sh
+├── utils/                    # Container utility scripts
+│   ├── fixpath.sh
+│   ├── healthcheck.sh
+│   ├── logger.sh
+│   ├── passgen.sh
+│   └── pipxpath.sh
+├── .env                      # Your .env file (not in version control)
+├── Dockerfile                # Multi-stage Dockerfile
+├── README.md                 # THIS FILE
+└── sample.env                # The sample env file to be copied'
 ```
 
 ## Environment Variables
@@ -347,7 +346,9 @@ graph LR
 - Removes the logger script to keep the layer clean
 - Resulting Python artifacts are copied to `devtools` via `COPY --from=pybase`
 
-**Usage Pattern**: The `devtools` stage uses `COPY --from=pybase /usr/local/bin /usr/local/bin/` and `COPY --from=pybase $PYTHON_INSTALL_PATH $PYTHON_INSTALL_PATH` to get the pre-built Python without inheriting any build dependencies.
+**Usage Pattern**: The `devtools` stage uses `COPY --from=pybase /usr/local/bin /usr/local/bin/` and
+`COPY --from=pybase $PYTHON_INSTALL_PATH $PYTHON_INSTALL_PATH` to get the pre-built Python without inheriting any build
+dependencies.
 
 ### 8. **`devbuilder`** (`FROM builder`)
 
