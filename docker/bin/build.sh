@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1091
 
-# ./.devcontainer/docker/bin/build.sh \
+# ./docker/bin/build.sh \
 #   starter-project \
 #   --build-arg USERNAME=vscode \
 #   --build-arg PYTHON_VERSION=devcontainer \
@@ -60,12 +60,19 @@ BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-ubuntu}"
 BASE_IMAGE_VARIANT="${BASE_IMAGE_VARIANT:-latest}"
 DEFAULT_PLATFORM="linux/$(uname -m)"
 FILEZ_TARGET="${FILEZ_TARGET:-filez}"
+[ "$BASE_IMAGE_VARIANT" = "latest" ] \
+    && BASE_IMAGE_REF="$BASE_IMAGE_NAME" \
+    || BASE_IMAGE_REF="${BASE_IMAGE_VARIANT}"
+PYTHON_VERSION="${PYTHON_VERSION:-latest}"
+[ "$PYTHON_VERSION" = "latest" ] \
+    && PYTHON_IMAGE_REF="${BASE_IMAGE_REF}" \
+    || PYTHON_IMAGE_REF="${PYTHON_VERSION}-${BASE_IMAGE_REF}"
 
 # Determine Docker context
 if [ -d "$last_arg" ]; then
     BUILD_CONTEXT="$last_arg"
 else
-    BUILD_CONTEXT="${BUILD_CONTEXT:-"${script_dir}/../../.."}"
+    BUILD_CONTEXT="${BUILD_CONTEXT:-"${script_dir}/../.."}"
 fi
 if [ ! -d "$BUILD_CONTEXT" ]; then
     echo "(!) Docker context directory not found at expected path: $BUILD_CONTEXT" >&2
@@ -90,12 +97,14 @@ if [ "$DOCKER_TARGET" = "$FILEZ_TARGET" ]; then
 else
     tag_prefix="${IMAGE_NAME}:${DOCKER_TARGET}"
     # Append base image name if variant is 'latest'
-    [ "$BASE_IMAGE_VARIANT" != "latest" ] || tag_prefix="${tag_prefix}-${BASE_IMAGE_NAME}"
-
-    build_tag="${tag_prefix}-${BASE_IMAGE_VARIANT}"
+    if [ "$BASE_IMAGE_VARIANT" = "latest" ]; then
+        build_tag="${tag_prefix}-${BASE_IMAGE_REF}"
+    else
+        build_tag="${tag_prefix}-${BASE_IMAGE_VARIANT}"
+    fi
 fi
 
-dockerfile_path="${BUILD_CONTEXT}/.devcontainer/docker/Dockerfile"
+dockerfile_path="${BUILD_CONTEXT}/docker/Dockerfile"
 
 if [ ! -f "$dockerfile_path" ]; then
     echo "(!) Dockerfile not found at expected path: ${dockerfile_path}" >&2
@@ -115,6 +124,7 @@ com+=("--platform=$(dedupe "${PLATFORM:-$DEFAULT_PLATFORM}")")
 com_arg=()
 com_arg+=("--build-arg" "IMAGE_NAME=${BASE_IMAGE_NAME}")
 com_arg+=("--build-arg" "VARIANT=${BASE_IMAGE_VARIANT}")
+com_arg+=("--build-arg" "PYTHON_IMAGE_REF=${PYTHON_IMAGE_REF}")
 if [ -n "$REMOTE_USER" ]; then
     com_arg+=("--build-arg" "USERNAME=${REMOTE_USER}")
 fi

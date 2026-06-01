@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1091
 
-# ./.devcontainer/docker/bin/publish.sh \
+# ./docker/bin/publish.sh \
 #   stairwaytowonderland
 
 echo "(ƒ) Preparing for Docker image publish (push)..." >&2
@@ -33,6 +33,9 @@ BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-ubuntu}"
 BASE_IMAGE_VARIANT="${BASE_IMAGE_VARIANT:-latest}"
 DEFAULT_PLATFORM="linux/$(uname -m)"
 FILEZ_TARGET="${FILEZ_TARGET:-filez}"
+[ "$BASE_IMAGE_VARIANT" = "latest" ] \
+    && BASE_IMAGE_REF="$BASE_IMAGE_NAME" \
+    || BASE_IMAGE_REF="${BASE_IMAGE_VARIANT}"
 
 REGISTRY_PROVIDER="${REGISTRY_PROVIDER:-GitHub}"
 REGISTRY_PROVIDER_FQDN="${REGISTRY_PROVIDER_FQDN:-github.com}"
@@ -62,9 +65,9 @@ if [ $# -gt 0 ]; then
 fi
 IMAGE_VERSION="${IMAGE_VERSION:-latest}"
 
-tag_suffix="${BASE_IMAGE_VARIANT}"
-# Append image version if not 'latest'
-[ "$IMAGE_VERSION" = "latest" ] || tag_suffix="${tag_suffix}-${IMAGE_VERSION}"
+# tag_suffix="${BASE_IMAGE_VARIANT}"
+# # Append image version if not 'latest'
+# [ "$IMAGE_VERSION" = "latest" ] || tag_suffix="${tag_suffix}-${IMAGE_VERSION}"
 
 title_prefix="${REPO_NAME} - ${DOCKER_TARGET}"
 if [ "$DOCKER_TARGET" = "$FILEZ_TARGET" ]; then
@@ -74,10 +77,13 @@ else
     title_suffix=" - ${BASE_IMAGE_NAME} - ${BASE_IMAGE_VARIANT}"
     tag_prefix="${IMAGE_NAME}:${DOCKER_TARGET}"
     # Append base image name if variant is 'latest'
-    [ "$BASE_IMAGE_VARIANT" != "latest" ] || tag_prefix="${tag_prefix}-${BASE_IMAGE_NAME}"
+    if [ "$BASE_IMAGE_VARIANT" = "latest" ]; then
+        build_tag="${tag_prefix}-${BASE_IMAGE_REF}"
+    else
+        build_tag="${tag_prefix}-${BASE_IMAGE_VARIANT}"
+    fi
 
-    build_tag="${tag_prefix}-${BASE_IMAGE_VARIANT}"
-    docker_tag="${tag_prefix}-${tag_suffix}"
+    docker_tag="${build_tag}"
 fi
 
 # * Registry login happens here
@@ -144,7 +150,7 @@ tag_image "$build_tag" "$REGISTRY_URL"
 base_image_name_cap="$(capitalize "$BASE_IMAGE_NAME")"
 image_title="${title_prefix}${title_suffix-}"
 repo_source="https://${REGISTRY_PROVIDER_FQDN}/${REPO_NAMESPACE}/${REPO_NAME}"
-revision="$(git -C "${script_dir}/../../.." rev-parse HEAD)"
+revision="$(git -C "${script_dir}/../.." rev-parse HEAD)"
 description_url="${repo_source}/blob/main/.devcontainer/docker"
 description_image="Built from \`${BASE_IMAGE_NAME}:${BASE_IMAGE_VARIANT}\`."
 description_docs="For documentation and source, visit: ${description_url}"

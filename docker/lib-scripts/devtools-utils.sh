@@ -12,9 +12,11 @@ LEVEL='ƒ' $LOGGER "Installing devtools utilities and dependencies..."
 
 PACKAGES_TO_INSTALL="${PACKAGES_TO_INSTALL% } $(
     cat << EOF
-tar
-make
+curl
 gnupg
+make
+tar
+yq
 EOF
 )"
 
@@ -45,7 +47,8 @@ else
     update_and_install "${PACKAGES_TO_INSTALL# }"
 
     # Install Node.js (LTS version) and npm
-    curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+    # curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+    wget -qO- https://deb.nodesource.com/setup_lts.x | bash - \
         && PACKAGES_TO_INSTALL="$(
             cat << EOF
 nodejs

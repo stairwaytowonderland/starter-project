@@ -32,14 +32,16 @@ if [ -z "$go_arch" ]; then
     exit 1
 fi
 
-go_version="$(curl --silent https://go.dev/VERSION?m=text | xargs echo | cut -d' ' -f1)"
+# go_version="$(curl --silent https://go.dev/VERSION?m=text | xargs echo | cut -d' ' -f1)"
+go_version="$(wget -qO- https://go.dev/VERSION?m=text | xargs echo | cut -d' ' -f1)"
 go_url="https://dl.google.com/go/${go_version}.${go_os}-${go_arch}.tar.gz"
 
 rm -rf /usr/local/go
 LEVEL='*' $LOGGER "Downloading Go $go_version from $go_url ..."
 if (
     set -x
-    curl -sSLf "$go_url" | tar -C /usr/local -xzf -
+    # curl -sSLf "$go_url" | tar -C /usr/local -xzf -
+    wget -qO- "$go_url" | tar -C /usr/local -xzf -
 ); then
     # export PATH="/usr/local/go/bin:$PATH"
     # shellcheck disable=SC2027,SC2086

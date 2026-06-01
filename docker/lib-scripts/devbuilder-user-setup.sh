@@ -98,33 +98,25 @@ cat << EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
 if type "$BREW" &>/dev/null
 then
     eval "\$($BREW shellenv)"
-fi
-EOF
 
-test "$PYTHON_VERSION" = "devcontainer" \
-    || test "$PYTHON_VERSION" = "$USERNAME" \
-    || test "$PYTHON_VERSION" = "system" \
-    || cat << EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
-
-if type brew &>/dev/null
-then
-    # PYTHON_BREW_PATH="\$(brew --prefix python3)/bin"
-    PYTHON_BREW_PATH="\$(brew --prefix)/opt/python3/bin"
+    PYTHON_BREW_PATH="\$("$BREW" --prefix)/opt/python3/bin"
     if test -d "\$PYTHON_BREW_PATH"
     then
-        PATH="\${PYTHON_BREW_PATH}:\${PATH}"
+        # PATH="\${PYTHON_BREW_PATH}:\${PATH}"
+        case ":\$PATH:" in
+            *":\$PYTHON_BREW_PATH:"*) ;;
+            *) PATH="\$PYTHON_BREW_PATH:\$PATH" ;;
+        esac
     fi
 fi
-EOF
 
-test "$PYTHON_VERSION" != "devcontainer" \
-    && test "$PYTHON_VERSION" != "$USERNAME" \
-    && test "$PYTHON_VERSION" != "system" \
-    || cat << EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
-
-if type /usr/local/python/current/bin/python3 &>/dev/null
+if test -d "/home/$USERNAME/.local/bin"
 then
-    PATH="/usr/local/python/current/bin:\${PATH}"
+    # PATH="/home/$USERNAME/.local/bin:\$PATH"
+    case ":\$PATH:" in
+        *":/home/$USERNAME/.local/bin:"*) ;;
+        *) PATH="/home/$USERNAME/.local/bin:\$PATH" ;;
+    esac
 fi
 EOF
 
@@ -193,8 +185,6 @@ done
 
 cat << EOF | tee -a /etc/skel/.bashrc /root/.bashrc > /dev/null
 
-PATH="\$($FIXPATH)"
-
 if ! shopt login_shell >/dev/null
 then
     for f in /etc/profile.d/*.sh
@@ -229,6 +219,7 @@ fi
 
 # Handle exit
 __quit() { printf "🤖 %s 🤖\n" "Klaatu barada nikto" >&2; }
+# __quit() { printf "🐬 %s 🐬\n" "So long, and thanks for all the fish" >&2; }
 
 # Handle cancelled operations (e.g., Ctrl+C)
 __control_c() {
@@ -396,6 +387,44 @@ if [ -f ~/.bash_aliases ]
 then
     . ~/.bash_aliases
 fi
+
+welcome_message() {
+    _WELCOME_MESSAGE="\${_WELCOME_MESSAGE:-\$WELCOME_MESSAGE}"
+    if [ -n "\$_WELCOME_MESSAGE" ]
+    then
+        echo -e "\${C_ESQ}2m\${_WELCOME_MESSAGE}\${C_RESET}" >&2
+    fi
+    unset _WELCOME_MESSAGE
+}
+
+activate_venv() {
+    if [ "\${VIRTUAL_ENV_ENABLED:-false}" = "true" ]
+    then
+        VIRTUAL_ENV_DIR="\${1:-"$VIRTUAL_ENV_DIR"}"
+        if [ ! -d "\$VIRTUAL_ENV_DIR" ] || [ ! -f "\$VIRTUAL_ENV_DIR/bin/activate" ]
+        then
+            mkdir -p "\$VIRTUAL_ENV_DIR"
+            if type python3 &>/dev/null
+            then
+                python3 -m venv --prompt "\$VIRTUAL_ENV_DIR" "\$VIRTUAL_ENV_DIR"
+            fi
+        fi
+
+        if [ -f "\$VIRTUAL_ENV_DIR/bin/activate" ]
+        then
+            if [ -z "\${VIRTUAL_ENV-}" ] || [ "\${VIRTUAL_ENV:-}" != "\$VIRTUAL_ENV_DIR" ]
+            then
+                _WELCOME_MESSAGE="\${WELCOME_MESSAGE}\nTo deactivate venv, type "$'\`deactivate\`'
+                # VIRTUAL_ENV_DISABLE_PROMPT=1 . "\${VIRTUAL_ENV_DIR}/bin/activate"
+                . "\${VIRTUAL_ENV_DIR}/bin/activate"
+                welcome_message
+            fi
+        fi
+    fi
+}
+
+activate_venv
+[ -z "\$_WELCOME_MESSAGE" ] || welcome_message
 EOF
 
 cat << EOF | tee -a /etc/skel/.profile /root/.profile > /dev/null

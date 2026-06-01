@@ -2,9 +2,9 @@
 # shellcheck disable=SC1091
 
 # Basic Usage:
-# ./.devcontainer/docker/bin/clean.sh [--simple|--full [--force|-f]]
+# ./docker/bin/clean.sh [--simple|--full [--force|-f]]
 # Example:
-# ./.devcontainer/docker/bin/clean.sh --full -f
+# ./docker/bin/clean.sh --full -f
 
 echo "(ƒ) Preparing for Docker cleanup..." >&2
 

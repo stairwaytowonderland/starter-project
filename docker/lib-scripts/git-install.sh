@@ -26,7 +26,8 @@ get_version() {
 
     if [ "$(echo "${git_version}" | grep -o '\.' | wc -l)" != "2" ]; then
         # https://github.com/devcontainers/features/blob/main/src/git/install.sh#L291C76-L291C117
-        version_list="$(curl -sSL -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/git/git/tags" | grep -oP '"name":\s*"v\K[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' | sort -rV)"
+        # version_list="$(curl -sSL -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/git/git/tags" | grep -oP '"name":\s*"v\K[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' | sort -rV)"
+        version_list="$(wget -qO- -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/git/git/tags" | grep -oP '"name":\s*"v\K[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' | sort -rV)"
         if [ "${git_version}" = "latest" ] || [ "${git_version}" = "lts" ] || [ "${git_version}" = "current" ]; then
             GIT_VERSION="$(echo "${version_list}" | head -n 1)"
         else
@@ -53,7 +54,8 @@ git_download() {
     (
         set -x
         # curl -sSL -o "/tmp/${git_tar}" "${git_url}" | tar -xzC /tmp
-        curl -sSL -o "/tmp/${git_tar}" "${git_url}"
+        # curl -sSL -o "/tmp/${git_tar}" "${git_url}"
+        wget -qO "/tmp/${git_tar}" "${git_url}"
         tar -xzf "/tmp/${git_tar}" -C /tmp/
     )
 }

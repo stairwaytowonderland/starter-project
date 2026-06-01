@@ -10,8 +10,10 @@ set -e
 
 PACKAGES_TO_INSTALL="${PACKAGES_TO_INSTALL% } $(
     cat << EOF
-wget
+gnupg2
+lsb-release
 unzip
+wget
 EOF
 )"
 
@@ -19,10 +21,12 @@ update_and_install "${PACKAGES_TO_INSTALL# }"
 
 if [ "$(uname -m)" = "x86_64" ]; then
     # Install AWS CLI v2 for x86_64
-    curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    # curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    wget -qO awscliv2.zip "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
 else
     # uname -m must be aarch64
-    curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
+    # curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
+    wget -qO awscliv2.zip "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip"
 fi
 unzip -o awscliv2.zip
 ./aws/install --update
