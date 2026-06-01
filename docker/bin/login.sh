@@ -6,7 +6,7 @@ REGISTRY_PROVIDER_FQDN="${REGISTRY_PROVIDER_FQDN:-github.com}"
 
 GITHUB_TOKEN="${GITHUB_TOKEN-}"
 GH_TOKEN="${GH_TOKEN:-$GITHUB_TOKEN}"
-GITHUB_PAT="${GITHUB_PAT:-$GH_TOKEN}"
+GITHUB_PAT="${GH_TOKEN:-$GITHUB_PAT}"
 CR_PAT="${CR_PAT:-$GITHUB_PAT}"
 
 # Determine Container Registry username
@@ -28,7 +28,11 @@ REGISTRY_URL_PREFIX="${REGISTRY_HOST}/${REGISTRY_USER}"
 
 if [ "${LOGGED_IN:-false}" != "true" ]; then
     echo "(+) Logging in to ${REGISTRY_PROVIDER} Container Registry..." >&2
-    echo "$CR_PAT" | docker login "$REGISTRY_HOST" -u "$REGISTRY_USER" --password-stdin \
+    # echo "Using token: ${CR_PAT:+***}" >&2
+    echo "$CR_PAT" | (
+        set -x
+        docker login "$REGISTRY_HOST" -u "$REGISTRY_USER" --password-stdin
+    ) \
         && export LOGGED_IN=true
     echo "You can now publish images to ${REGISTRY_URL_PREFIX}/${REGISTRY_IMAGE}" >&2
     echo "Re-run this script with LOGGED_IN=true to skip logging in again." >&2
